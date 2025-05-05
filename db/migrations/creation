@@ -1,0 +1,104 @@
+-- Таблица игроков
+CREATE TABLE players (
+    player_id SERIAL PRIMARY KEY,
+    UL_rating FLOAT DEFAULT 0.0,
+    nickname VARCHAR(255) NOT NULL,
+    faceit VARCHAR(255),
+	  img VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE players IS 'Основная таблица игроков';
+COMMENT ON COLUMN players.UL_rating IS 'Рейтинг игрока в Upper League';
+
+-- Таблица турниров
+CREATE TABLE ul_tournaments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE ul_winners (
+    ul_tournaments UUID NOT NULL REFERENCES ul_tournaments(id),
+    player_id INTEGER NOT NULL REFERENCES players(player_id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE ul_tournaments IS 'Турниры Upper League';
+
+-- Таблица матчей
+CREATE TABLE matches (
+    match_id SERIAL PRIMARY KEY,
+    best_of INT,
+    ul_tournament_id UUID REFERENCES ul_tournaments(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE matches IS 'Матчи между командами';
+COMMENT ON COLUMN matches.best_of IS 'Формат матча (BO1/BO3/BO5)';
+
+-- Таблица карт в матчах
+CREATE TABLE maps (
+    map_id SERIAL PRIMARY KEY,
+    map_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE maps IS 'Отдельные карты в рамках матча';
+-- Таблица статистики игроков
+CREATE TABLE match_players (
+    match_id INTEGER NOT NULL REFERENCES matches(match_id),
+    player_id INTEGER NOT NULL REFERENCES players(player_id),
+    map_id INTEGER NOT NULL REFERENCES maps(map_id),
+    is_winner BOOL,
+    kills INTEGER DEFAULT 0,
+    deaths INTEGER DEFAULT 0,
+    assists INTEGER DEFAULT 0,
+    headshots INTEGER DEFAULT 0,
+    exchanged INTEGER DEFAULT 0,
+    firstdeaths INTEGER DEFAULT 0,
+    firstkills INTEGER DEFAULT 0,
+    damage INTEGER DEFAULT 0,
+    multi_kills INTEGER[5] DEFAULT ARRAY[0,0,0,0,0],
+    clutches INTEGER[5] DEFAULT ARRAY[0,0,0,0,0],
+	  impact FLOAT DEFAULT 0.0,
+	  rating FLOAT DEFAULT 0.0,
+    rounds INTEGER DEFAULT 0,
+    KASTScore INTEGER DEFAULT 0,
+    flash_assists INTEGER DEFAULT 0,
+    grenades_damages INTEGER DEFAULT 0,
+	  started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (match_id, player_id, map_id)
+);
+
+COMMENT ON TABLE match_players IS 'Статистика игроков по матчам';
+COMMENT ON COLUMN match_players.KASTScore IS 'Показатель KAST (процент раундов с вкладом)';
+
+-- Связующая таблица турниров и матчей
+CREATE TABLE tournament_matches (
+    tournament_id UUID NOT NULL REFERENCES ul_tournaments(id) ON DELETE CASCADE,
+    match_id INTEGER NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
+    PRIMARY KEY (tournament_id, match_id)
+);
+
+-- Индексы
+CREATE INDEX idx_multikills ON match_players USING GIN(multi_kills);
+CREATE INDEX idx_clutches ON match_players USING GIN(clutches);
+CREATE INDEX idx_matches_tournament ON matches(ul_tournament_id);
+CREATE INDEX idx_tournament_matches_match ON tournament_matches(match_id);
+
+-- Триггер для обновления времени
+CREATE OR REPLACE FUNCTION update_modified_column() 
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_matches_modtime 
+BEFORE UPDATE ON matches 
+FOR EACH ROW EXECUTE FUNCTION update_modified_column();

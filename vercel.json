@@ -1,0 +1,14 @@
+{
+    "version": 2,
+    "builds": [
+      { "src": "api/main.go", "use": "@vercel/go" }
+    ],
+    "rewrites": [
+      {
+        "source": "/api/(.*)",
+        "destination": "api/main.go"
+      }
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false
+  }

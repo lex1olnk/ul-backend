@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS:GO Stats Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Навигация -->
+    <nav class="bg-gray-800 text-white">
+        <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="/" class="text-xl font-bold">CS:GO Stats</a>
+            <div class="flex gap-4">
+                <a href="/api/matches" class="hover:text-gray-300">Матчи</a>
+                <a href="/" class="hover:text-gray-300">Поиск матча</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Основной контент -->
+    <div class="container mx-auto px-4 py-8">
+        <!-- Герой секция -->
+        <div class="text-center mb-12">
+            <h1 class="text-4xl font-bold mb-4">Трекер статистики CS:GO</h1>
+            <p class="text-gray-600 mb-8">Анализируйте ваши матчи и улучшайте навыки</p>
+            
+            <!-- Поиск матча -->
+            <div class="max-w-md mx-auto" id="search">
+                <form action="/player/" method="GET" class="flex gap-2">
+                    <input 
+                        type="text" 
+                        name="id" 
+                        placeholder="Введите ID матча" 
+                        class="flex-1 px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                    <button 
+                        type="submit" 
+                        class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+                    >
+                        Найти
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрипт для обработки поиска -->
+    <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const matchId = document.querySelector('input[name="id"]').value;
+            window.location.href = `/player/${matchId}`;
+        });
+    </script>
+</body>
+</html>

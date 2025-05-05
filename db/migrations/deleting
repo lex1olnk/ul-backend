@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS 
+    players,
+    matches,
+	  maps,
+    match_players,
+    ul_tournaments,
+    tournament_matches ,
+	  ul_winners,
+	  schema_migrations
+CASCADE;
