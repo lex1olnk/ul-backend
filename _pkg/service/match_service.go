@@ -15,7 +15,7 @@ type roundType struct {
 	kills     int
 	isDead    bool
 	hasKill   bool
-	hasTrade  bool
+	wasTrade  bool
 	hasAssist bool
 }
 
@@ -24,25 +24,41 @@ func firstInteract(kill m.Kill) (int, int) {
 }
 
 func ProcessStatistic(st *m.MatchApi) {
+	roundKAST := make(map[int]*roundType)
+	for _, player := range st.Players {
+		initPlayerKAST(roundKAST, player.ID)
+	}
+
 	for _, round := range st.Rounds {
 		entry := st.Maps[round.MapID]
-		processRoundKills(round.Kills, &entry)
+		processRoundKills(round.Kills, &entry, roundKAST)
 		processRoundDamages(round.Damages, &entry)
 		processRoundClutches(round.Clutches, &entry)
 		st.Maps[round.MapID] = entry
 	}
 }
 
-func processRoundKills(kills []m.Kill, mapStat *m.Stats) {
-	roundKAST := make(map[int]*roundType)
+func processRoundKills(kills []m.Kill, mapStat *m.Stats, roundKAST map[int]*roundType) {
 	fk, fd := firstInteract(kills[0])
+	for id := range roundKAST {
+		roundKAST[id] = &roundType{
+			0,
+			false,
+			false,
+			false,
+			false,
+		}
+	}
+
 	for index, kill := range kills {
 		// Обновляем общую статистику
 		updatePlayerMapStats(mapStat, kill)
-
 		// Обрабатываем KAST и мультикиллы
+		victim := calculateTrade(index, kill, kills, mapStat)
+		if victim != 0 {
+			roundKAST[victim].wasTrade = true
+		}
 		processKAST(roundKAST, kill)
-		calculateTrade(index, kill, kills, mapStat)
 	}
 
 	// Финализируем статистику раунда
@@ -81,13 +97,6 @@ func updatePlayerMapStats(mapStat *m.Stats, kill m.Kill) {
 }
 
 func processKAST(roundKAST map[int]*roundType, kill m.Kill) {
-	// Инициализация записей игроков
-	initPlayerKAST(roundKAST, kill.KillerId)
-	initPlayerKAST(roundKAST, kill.VictimId)
-	if kill.AssistantId != nil {
-		initPlayerKAST(roundKAST, *kill.AssistantId)
-	}
-
 	// Обновление состояния
 	roundKAST[kill.VictimId].isDead = true
 	roundKAST[kill.KillerId].kills++
@@ -104,7 +113,7 @@ func initPlayerKAST(roundKAST map[int]*roundType, playerID int) {
 			kills:     0,
 			isDead:    false,
 			hasKill:   false,
-			hasTrade:  false,
+			wasTrade:  false,
 			hasAssist: false,
 		}
 	}
@@ -115,7 +124,7 @@ func finalizeRoundStats(mapStat *m.Stats, roundKAST map[int]*roundType, fk int, 
 		playerStats := mapStat.MapStats[playerID]
 
 		// Обновляем KAST
-		if !stats.isDead || stats.hasKill || stats.hasAssist || stats.hasTrade {
+		if !stats.isDead || stats.hasKill || stats.hasAssist || stats.wasTrade {
 			playerStats.KASTScore += 1.0
 		}
 

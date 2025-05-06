@@ -1,0 +1,54 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
+)
+
+func GetUlTournaments(ctx context.Context, tx pgx.Tx) ([]gin.H, error) {
+	query := `SELECT 
+			id, name
+		FROM 
+			ul_tournaments
+		ORDER BY
+			name
+	`
+
+	rows, err := tx.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var stats []gin.H
+
+	for rows.Next() {
+		var result struct {
+			id   string
+			name string
+		}
+		err := rows.Scan(
+			&result.id,
+			&result.name,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+		stats = append(stats, gin.H{"id": result.id, "name": result.name})
+	}
+
+	return stats, nil
+}
+
+func PostUlTournaments(ctx context.Context, tx pgx.Tx, name string) error {
+	query := `INSERT INTO ul_tournaments (name)
+			VALUES ($1);
+	`
+
+	_, err := tx.Exec(ctx, query, name)
+	return err
+}

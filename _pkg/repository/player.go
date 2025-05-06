@@ -117,10 +117,6 @@ LIMIT $2
 		})
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
 	return stats, nil
 }
 

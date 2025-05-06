@@ -2,12 +2,10 @@ package main
 
 import (
 	"fastcup/_pkg/handler"
-	"os"
 
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rs/cors"
 )
 
 func HomepageHandler(c *gin.Context) {
@@ -17,16 +15,6 @@ func HomepageHandler(c *gin.Context) {
 func main() {
 	router := gin.Default()
 
-	config := cors.Default()
-	if os.Getenv("VERCEL_ENV") == "production" {
-		config = cors.New(cors.Options{
-			AllowedOrigins: []string{"https://vercel-fastcup.vercel.app/"},
-		})
-	} else {
-		config = cors.AllowAll()
-	}
-
-	config.Handler(router)
 	route := router.Group("/api")
 	{
 		route.GET("/ping", handler.Ping)
@@ -38,6 +26,12 @@ func main() {
 		route.GET("/matches", handler.GetMatches)
 
 		route.POST("/matches", handler.PostMatches)
+
+		route.GET("/ultournaments", handler.GetUlTournaments)
+
+		route.POST("/ultournaments", handler.PostUlTournaments)
+
+		route.POST("/ulmatches", handler.PostUlMatches)
 
 		route.POST("/ulrating", handler.UpdateUlRating)
 	}

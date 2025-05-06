@@ -6,24 +6,13 @@ import (
 	m "fastcup/_pkg/models"
 	s "fastcup/_pkg/service"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func CreateMatch(pool *pgxpool.Pool, matchID int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	// Начало транзакции
-	tx, err := pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx) // Безопасный откат при ошибках
-
+func CreateMatch(ctx context.Context, tx pgx.Tx, matchID int, tournamentId *string) error {
 	// 1. Проверка существования матча
 	fmt.Println("1. Проверка существования матча")
 	exists, err := checkMatchExists(ctx, tx, matchID)
@@ -64,7 +53,7 @@ func CreateMatch(pool *pgxpool.Pool, matchID int) error {
 
 	fmt.Println("5. Сохранение основной информации матча")
 	// 5. Сохранение основной информации матча
-	if err := saveMatchInfo(ctx, tx, matchID, match); err != nil {
+	if err := saveMatchInfo(ctx, tx, matchID, match, tournamentId); err != nil {
 		return err
 	}
 	fmt.Println("5.2. Сохранение карт")
@@ -85,11 +74,6 @@ func CreateMatch(pool *pgxpool.Pool, matchID int) error {
 	// 8. Сохранение статистики игроков
 	if err := savePlayersStats(ctx, tx, matchID, stats.Maps); err != nil {
 		return err
-	}
-
-	// Фиксация транзакции
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("transaction commit failed: %w", err)
 	}
 
 	return nil
@@ -147,13 +131,14 @@ func savePlayers(ctx context.Context, tx pgx.Tx, players []m.PlayerInit) error {
 	return nil
 }
 
-func saveMatchInfo(ctx context.Context, tx pgx.Tx, matchID int, match m.Match) error {
+func saveMatchInfo(ctx context.Context, tx pgx.Tx, matchID int, match m.Match, tournamentId *string) error {
 	_, err := tx.Exec(ctx,
 		`INSERT INTO matches 
-			(match_id, best_of)
-			VALUES ($1, $2)`,
+			(match_id, best_of, ul_tournament_id)
+			VALUES ($1, $2, $3)`,
 		matchID,
 		match.BestOf,
+		tournamentId,
 	)
 	return err
 }
