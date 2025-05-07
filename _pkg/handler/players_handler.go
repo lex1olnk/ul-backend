@@ -28,7 +28,11 @@ func GetPlayer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid player ID format"})
 		return
 	}
-
+	if err := db.Init(); err != nil {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
+		return
+	}
+	defer db.Close()
 	// Инициализация контекста с таймаутом
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -40,6 +44,7 @@ func GetPlayer(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+
 	defer func() {
 		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 			log.Printf("Rollback error: %v", err)

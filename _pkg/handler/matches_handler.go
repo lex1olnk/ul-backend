@@ -152,7 +152,10 @@ type AttachMatchesRequest struct {
 func PostUlMatches(c *gin.Context) {
 	var req AttachMatchesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request data"})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid request data",
+			"details": err.Error(),
+		})
 		return
 	}
 

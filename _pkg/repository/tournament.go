@@ -44,11 +44,18 @@ func GetUlTournaments(ctx context.Context, tx pgx.Tx) ([]gin.H, error) {
 	return stats, nil
 }
 
-func PostUlTournaments(ctx context.Context, tx pgx.Tx, name string) error {
-	query := `INSERT INTO ul_tournaments (name)
-			VALUES ($1);
-	`
+func PostUlTournaments(ctx context.Context, tx pgx.Tx, name string) (string, error) {
+	query := `
+        INSERT INTO ul_tournaments (name)
+        VALUES ($1)
+        RETURNING id;
+    `
 
-	_, err := tx.Exec(ctx, query, name)
-	return err
+	var tournamentID string
+	err := tx.QueryRow(ctx, query, name).Scan(&tournamentID)
+	if err != nil {
+		return "", err
+	}
+
+	return tournamentID, nil
 }

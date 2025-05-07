@@ -65,22 +65,22 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 
 func InitialMatchData(ctx context.Context, tx pgx.Tx, playerID int) ([]gin.H, error) {
 	query := `SELECT 
-	mp.match_id,
-	mp.kills,
-	mp.deaths,
-	mp.assists,
-	mp.finished_at,
-	mp.rating,
-	m.map_name
-FROM 
-	match_players mp
-LEFT JOIN 
-	maps m ON m.map_id = mp.map_id
-WHERE 
-	player_id = $1
-ORDER BY
-	mp.finished_at DESC
-LIMIT $2
+		mp.match_id,
+		mp.kills,
+		mp.deaths,
+		mp.assists,
+		mp.finished_at,
+		mp.rating,
+		m.map_name
+	FROM 
+		match_players mp
+	LEFT JOIN 
+		maps m ON m.map_id = mp.map_id
+	WHERE 
+		player_id = $1
+	ORDER BY
+		mp.finished_at DESC
+	LIMIT $2
 `
 	rows, err := tx.Query(ctx, query, playerID, 15)
 
@@ -204,10 +204,6 @@ func GetAverageMapsStats(ctx context.Context, tx pgx.Tx, playerID int) ([]interf
 			"avg_rating": result.AvgRating,
 			"winrate":    result.Winrate,
 		})
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return stats, nil

@@ -85,7 +85,7 @@ func PostUlTournaments(c *gin.Context) {
 	}()
 
 	name := c.PostForm("name")
-	err = repository.PostUlTournaments(ctx, tx, name)
+	tournamentId, err := repository.PostUlTournaments(ctx, tx, name)
 
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
@@ -102,5 +102,8 @@ func PostUlTournaments(c *gin.Context) {
 	// Формируем ответ с данными
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
+		"data": gin.H{
+			"tournamentId": tournamentId,
+		},
 	})
 }
