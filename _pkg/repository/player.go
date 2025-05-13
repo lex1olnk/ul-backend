@@ -5,6 +5,7 @@ import (
 	m "fastcup/_pkg/models"
 	q "fastcup/_pkg/queries"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
@@ -23,11 +24,13 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 	var stats []gin.H
 	for rows.Next() {
 		var s m.MapStats
+		var ul *string
 		if err := rows.Scan(
 			&s.ID,
 			&s.Nickname,
 			&s.ULRating,
 			&s.IMG,
+			&ul,
 			&s.Matches,
 			&s.Kills,
 			&s.Deaths,
@@ -42,11 +45,15 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 			return nil, fmt.Errorf("data scanning error: %w", err)
 		}
 
+		if ul != nil {
+			s.UL_ID = *ul
+		}
 		stats = append(stats, gin.H{
 			"playerID":  s.ID,
 			"nickname":  s.Nickname,
 			"uLRating":  s.ULRating,
 			"img":       s.IMG,
+			"ul_id":     s.UL_ID,
 			"matches":   s.Matches,
 			"kills":     s.Kills,
 			"deaths":    s.Deaths,
@@ -71,6 +78,7 @@ func InitialMatchData(ctx context.Context, tx pgx.Tx, playerID int) ([]gin.H, er
 		mp.assists,
 		mp.finished_at,
 		mp.rating,
+		mp.is_winner,
 		m.map_name
 	FROM 
 		match_players mp
@@ -100,6 +108,7 @@ func InitialMatchData(ctx context.Context, tx pgx.Tx, playerID int) ([]gin.H, er
 			&result.Assists,
 			&result.FinishedAt,
 			&result.Rating,
+			&result.IsWinner,
 			&result.Map,
 		)
 
@@ -113,6 +122,7 @@ func InitialMatchData(ctx context.Context, tx pgx.Tx, playerID int) ([]gin.H, er
 			"assists":    result.Assists,
 			"finishedAt": result.FinishedAt,
 			"rating":     result.Rating,
+			"isWinner":   result.IsWinner,
 			"map":        result.Map,
 		})
 	}
@@ -124,9 +134,11 @@ func GetAverageStats(ctx context.Context, tx pgx.Tx, playerID int) (gin.H, error
 	query := q.GetAverageStatsQuery
 
 	var result m.PlayerComparison
+	var faceitlink *string
 	err := tx.QueryRow(ctx, query, playerID).Scan(
 		&result.PlayerID,
 		&result.Nickname,
+		&faceitlink,
 		&result.ULRating,
 		&result.IMG,
 		&result.Kills,
@@ -134,25 +146,43 @@ func GetAverageStats(ctx context.Context, tx pgx.Tx, playerID int) (gin.H, error
 		&result.Assists,
 		&result.FirstKills,
 		&result.FirstDeaths,
+		&result.Flashes,
+		&result.Nades,
+		&result.Impact,
 		&result.KAST,
 		&result.Maps,
-		&result.WinratePercentile,
+		&result.Exchanged,
+		&result.V1,
+		&result.V2,
+		&result.V3,
+		&result.V4,
+		&result.V5,
+		&result.Winrate,
 		&result.KDPercentile,
 		&result.HSPercentile,
 		&result.AvgPercentile,
-		&result.TargetWinrate,
+		&result.RatingPercentile,
 		&result.TargetKD,
 		&result.TargetHSRatio,
 		&result.TargetAvg,
+		&result.Rating,
 	)
 
 	if err != nil {
 		return nil, err
 	}
 
+	if faceitlink != nil {
+		parts := strings.Split(*faceitlink, "/")
+		if len(parts) > 1 {
+			result.Faceit = parts[len(parts)-1]
+		}
+	}
+
 	return gin.H{
 		"playerID":      result.PlayerID,
 		"nickname":      result.Nickname,
+		"faceit":        result.Faceit,
 		"uLRating":      result.ULRating,
 		"img":           result.IMG,
 		"kills":         result.Kills,
@@ -160,16 +190,28 @@ func GetAverageStats(ctx context.Context, tx pgx.Tx, playerID int) (gin.H, error
 		"assists":       result.Assists,
 		"firstKills":    result.FirstKills,
 		"firstDeaths":   result.FirstDeaths,
+		"flashes":       result.Flashes,
+		"nades":         result.Nades,
+		"impact":        result.Impact,
 		"kast":          result.KAST,
 		"maps":          result.Maps,
-		"winrateAdv":    result.WinratePercentile,
+		"exchanged":     result.Exchanged,
+		"winrate":       result.Winrate,
 		"kdAdv":         result.KDPercentile,
 		"hsAdv":         result.HSPercentile,
 		"avgAdv":        result.AvgPercentile,
-		"TargetWinrate": result.TargetWinrate,
+		"ratingAdv":     result.RatingPercentile,
 		"TargetKD":      result.TargetKD,
 		"TargetHSRatio": result.TargetHSRatio,
 		"TargetAvg":     result.TargetAvg,
+		"rating":        result.Rating,
+		"clutches": gin.H{
+			"1v1": result.V1,
+			"1v2": result.V2,
+			"1v3": result.V3,
+			"1v4": result.V4,
+			"1v5": result.V5,
+		},
 	}, nil
 }
 

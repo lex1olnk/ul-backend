@@ -165,7 +165,7 @@ func PostUlMatches(c *gin.Context) {
 		parts := strings.Split(url, "/")
 		if len(parts) < 1 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid match URL"})
-			return
+			continue
 		}
 
 		matchID, err := strconv.Atoi(parts[len(parts)-1])
@@ -185,7 +185,7 @@ func PostUlMatches(c *gin.Context) {
 	}
 	defer db.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	tx, err := db.Pool.BeginTx(ctx, pgx.TxOptions{})

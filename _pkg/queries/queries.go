@@ -24,62 +24,92 @@ WITH player_stats AS (
     SELECT 
         mp.player_id,
         p.nickname,
-		p.img,
-		p.ul_rating,
-		count(p.nickname) as maps,
-        -- Основные метрики для сравнения
-		SUM(kills) as kills,
-		SUM(deaths) as deaths,
-		SUM(assists) as assists,
-		SUM(firstkills) as fk,
-		SUM(firstdeaths) as fd,
-		ROUND(SUM(kastscore)::DECIMAL / SUM(mp.rounds)::DECIMAL * 100, 2) as kast,
-		SUM(case mp.is_winner when true then 1 else 0 end)::DECIMAL /
-		COUNT(mp.player_id)::DECIMAL * 100
-        	AS winrate,
-        SUM(kills)::DECIMAL / NULLIF(SUM(deaths)::DECIMAL, 2) AS kd_ratio,
-        COALESCE(SUM(headshots), 0) / SUM(mp.kills)::DECIMAL * 100 AS total_hs_ratio,
-        COALESCE(SUM(mp.damage), 0) / SUM(mp.rounds)::DECIMAL AS total_avg
+        p.img,
+		p.faceit,
+        p.ul_rating,
+        COUNT(p.nickname) AS maps,
+        -- Основные метрики
+        SUM(kills) AS kills,
+        SUM(deaths) AS deaths,
+        SUM(assists) AS assists,
+        SUM(firstkills) AS fk,
+        SUM(firstdeaths) AS fd,
+        SUM(flash_assists) AS flashes,
+        SUM(grenades_damages) AS nades,
+        ROUND(SUM(impact)::DECIMAL, 2) AS impact,
+        SUM(exchanged) AS exchanged,
+        -- Статистика клатчей по типам
+        SUM(clutches[1]) AS clutches_1v1,
+        SUM(clutches[2]) AS clutches_1v2,
+        SUM(clutches[3]) AS clutches_1v3,
+        SUM(clutches[4]) AS clutches_1v4,
+        SUM(clutches[5]) AS clutches_1v5,
+        -- Остальные метрики
+        ROUND(SUM(kastscore)::DECIMAL / NULLIF(SUM(mp.rounds)::DECIMAL, 0) * 100, 2) AS kast,
+        SUM(CASE mp.is_winner WHEN true THEN 1 ELSE 0 END)::DECIMAL /
+        NULLIF(COUNT(mp.player_id)::DECIMAL, 0) * 100 AS winrate,
+        SUM(kills)::DECIMAL / NULLIF(SUM(deaths)::DECIMAL, 0) AS kd_ratio,
+        COALESCE(SUM(headshots), 0) / NULLIF(SUM(mp.kills)::DECIMAL, 0) * 100 AS total_hs_ratio,
+        COALESCE(SUM(mp.damage), 0) / NULLIF(SUM(mp.rounds)::DECIMAL, 0) AS total_avg,
+        COALESCE(SUM(mp.rating), 0) / NULLIF(COUNT(mp.match_id)::DECIMAL, 0) AS avg_rating
     FROM match_players mp
     JOIN players p ON mp.player_id = p.player_id
     LEFT JOIN matches m ON mp.match_id = m.match_id
-    GROUP BY mp.player_id, p.nickname, p.ul_rating, p.img
+    GROUP BY mp.player_id, p.nickname, p.ul_rating, p.img, p.faceit
 ),
 target_player AS (
-    SELECT * FROM player_stats WHERE player_id = $1  -- ID целевого игрока
+    SELECT * FROM player_stats WHERE player_id = $1
 ),
 comparison AS (
     SELECT
         tp.player_id,
         tp.nickname,
-		tp.ul_rating,
-		tp.img,
-		tp.kills,
-		tp.deaths,
-		tp.assists,
-		tp.fk,
-		tp.fd,
-		tp.kast,
-		tp.maps,
-        -- Процент игроков с худшим винрейтом
-    	(1 - ROUND(COUNT(CASE WHEN ps.winrate <= tp.winrate THEN 1 END)::DECIMAL / COUNT(tp.player_id)::DECIMAL, 2)) * 100 AS winrate_percentile,
-        -- Процент игроков с худшим KD
-    	(1 - ROUND(COUNT(CASE WHEN ps.kd_ratio <= tp.kd_ratio THEN 1 END)::DECIMAL / COUNT(tp.player_id)::DECIMAL, 2)) * 100 AS kd_percentile,
-        -- Процент игроков с меньшим количеством хедшотов
-   	 	(1 - ROUND(COUNT(CASE WHEN ps.total_hs_ratio <= tp.total_hs_ratio THEN 1 END)::DECIMAL / COUNT(tp.player_id)::DECIMAL, 2)) * 100 AS hs_percentile,
-		(1 - ROUND(COUNT(CASE WHEN ps.total_avg <= tp.total_avg THEN 1 END)::DECIMAL / COUNT(tp.player_id)::DECIMAL, 2)) * 100 AS avg_percentile
-
+		    tp.faceit,
+        tp.ul_rating,
+        tp.img,
+        tp.kills,
+        tp.deaths,
+        tp.assists,
+        tp.fk,
+        tp.fd,
+        tp.flashes,
+        tp.nades,
+        tp.impact,
+        tp.kast,
+        tp.maps,
+        tp.exchanged,
+        -- Статистика клатчей
+        tp.clutches_1v1,
+        tp.clutches_1v2,
+        tp.clutches_1v3,
+        tp.clutches_1v4,
+        tp.clutches_1v5,
+        ROUND(tp.winrate, 2) AS winrate,
+        -- Процентили
+        (1 - ROUND(COUNT(CASE WHEN ps.kd_ratio <= tp.kd_ratio THEN 1 END)::DECIMAL / 
+                  NULLIF(COUNT(tp.player_id)::DECIMAL, 0), 2)) * 100 AS kd_percentile,
+        (1 - ROUND(COUNT(CASE WHEN ps.total_hs_ratio <= tp.total_hs_ratio THEN 1 END)::DECIMAL / 
+                  NULLIF(COUNT(tp.player_id)::DECIMAL, 0), 2)) * 100 AS hs_percentile,
+        (1 - ROUND(COUNT(CASE WHEN ps.total_avg <= tp.total_avg THEN 1 END)::DECIMAL / 
+                  NULLIF(COUNT(tp.player_id)::DECIMAL, 0), 2)) * 100 AS avg_percentile,
+        (1 - ROUND(COUNT(CASE WHEN ps.avg_rating <= tp.avg_rating THEN 1 END)::DECIMAL / 
+                  NULLIF(COUNT(tp.player_id)::DECIMAL, 0), 2)) * 100 AS rating_percentile
     FROM target_player tp
     CROSS JOIN player_stats ps
-    GROUP BY tp.player_id, tp.nickname,tp.ul_rating, tp.img, tp.kills, tp.deaths, tp.assists, tp.kast, tp.fk, tp.fd, tp.maps
+    GROUP BY 
+        tp.player_id, tp.nickname, tp.ul_rating, tp.img, 
+        tp.kills, tp.deaths, tp.assists, tp.kast, tp.fk, tp.fd, 
+        tp.flashes, tp.nades, tp.impact, tp.maps, tp.winrate,
+        tp.exchanged, tp.faceit,
+        tp.clutches_1v1, tp.clutches_1v2, tp.clutches_1v3, 
+        tp.clutches_1v4, tp.clutches_1v5
 )
-
 SELECT 
     c.*,
-    ROUND(tp.winrate, 2) AS target_winrate,
-    ROUND(tp.kd_ratio, 2) AS target_kd,
-    ROUND(tp.total_hs_ratio, 2) AS total_hs_ratio,
-	ROUND(tp.total_avg, 2) AS target_avg
+    ROUND(tp.kd_ratio, 2) AS kd,
+    ROUND(tp.total_hs_ratio, 2) AS hs_percent,
+    ROUND(tp.total_avg, 2) AS avg_damage,
+    ROUND(tp.avg_rating::DECIMAL, 2) AS rating
 FROM comparison c
 JOIN target_player tp ON c.player_id = tp.player_id;
 `
@@ -89,9 +119,10 @@ var GetPlayerStats = `SELECT
 	p.nickname,
 	p.UL_rating,
 	p.img,
+	m.ul_tournament_id,
 	COUNT(mp.match_id) AS matches,
 	COALESCE(SUM(mp.kills), 0) AS kills,
-	COALESCE(SUM(mp.deaths), 0) AS deaths,
+	COALESCE(SUM(mp.deaths), 0) AS deaths, 
 	COALESCE(SUM(mp.assists), 0) AS assists,
 	COALESCE(SUM(mp.headshots), 0) AS headshots,
 	COALESCE(SUM(mp.kastscore), 0) AS kastscore,
@@ -101,7 +132,8 @@ var GetPlayerStats = `SELECT
 	COALESCE(SUM(mp.rounds), 0) AS total_rounds
 	FROM players p
 	LEFT JOIN match_players mp ON p.player_id = mp.player_id
-	GROUP BY p.player_id, p.nickname, p.UL_rating
+	LEFT JOIN matches m ON mp.match_id = m.match_id
+	GROUP BY p.player_id, p.nickname, p.UL_rating, m.ul_tournament_id
 	ORDER BY p.nickname`
 
 var MatchDamageQuery = `

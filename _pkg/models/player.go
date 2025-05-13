@@ -15,6 +15,7 @@ type MapStats struct {
 	Nickname    string
 	ULRating    float64
 	IMG         string
+	UL_ID       string
 	Matches     int
 	Kills       int
 	Deaths      int
