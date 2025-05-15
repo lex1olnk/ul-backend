@@ -14,7 +14,7 @@ import (
 
 func CreateMatch(ctx context.Context, tx pgx.Tx, matchID int, tournamentId *string) error {
 	// 1. Проверка существования матча
-	fmt.Println("1. Проверка существования матча")
+	//fmt.Println("1. Проверка существования матча")
 	exists, err := checkMatchExists(ctx, tx, matchID)
 	if err != nil {
 		return err
@@ -23,7 +23,7 @@ func CreateMatch(ctx context.Context, tx pgx.Tx, matchID int, tournamentId *stri
 		return nil // или возвращать ошибку, если матч уже существует
 	}
 
-	fmt.Println("2. Получение данных матча")
+	//fmt.Println("2. Получение данных матча")
 	// 2. Получение данных матча
 	match, err := getMatchData(matchID)
 
@@ -41,7 +41,7 @@ func CreateMatch(ctx context.Context, tx pgx.Tx, matchID int, tournamentId *stri
 			return err
 		}
 	*/
-	fmt.Println("4. Сохранение игроков")
+	//fmt.Println("4. Сохранение игроков")
 
 	// 4. Сохранение игроков
 
@@ -51,26 +51,26 @@ func CreateMatch(ctx context.Context, tx pgx.Tx, matchID int, tournamentId *stri
 		return err
 	}
 
-	fmt.Println("5. Сохранение основной информации матча")
+	//fmt.Println("5. Сохранение основной информации матча")
 	// 5. Сохранение основной информации матча
 	if err := saveMatchInfo(ctx, tx, matchID, match, tournamentId); err != nil {
 		return err
 	}
-	fmt.Println("5.2. Сохранение карт")
+	//fmt.Println("5.2. Сохранение карт")
 	if err := saveMatchMapsInfo(ctx, tx, stats); err != nil {
 		return err
 	}
 
 	// 6. Получение дополнительной статистики
-	fmt.Println("6. Получение дополнительной статистики")
+	//fmt.Println("6. Получение дополнительной статистики")
 	if err := getMatchStatistics(matchID, &stats); err != nil {
 		return err
 	}
-	fmt.Println("7. Обработка дополнительной статистики")
+	//fmt.Println("7. Обработка дополнительной статистики")
 	// 7. Обработка дополнительной статистики
 
 	s.ProcessStatistic(&stats)
-	fmt.Println("8. Сохранение статистики игроков")
+	//fmt.Println("8. Сохранение статистики игроков")
 	// 8. Сохранение статистики игроков
 	if err := savePlayersStats(ctx, tx, matchID, stats.Maps); err != nil {
 		return err

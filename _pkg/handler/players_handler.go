@@ -120,7 +120,8 @@ func GetPlayers(c *gin.Context) {
 		}
 	}()
 
-	query := `SELECT player_id, nickname FROM players`
+	query := `SELECT player_id, nickname FROM players
+ORDER BY nickname`
 
 	rows, err := tx.Query(ctx, query)
 	if err != nil {
