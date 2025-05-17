@@ -29,6 +29,18 @@ func ProcessStatistic(st *m.MatchApi) {
 		initPlayerKAST(roundKAST, player.ID)
 	}
 
+	for mapID, entry := range st.Maps {
+		entry.MapStats = make(map[int]m.MapStats)
+		for _, player := range st.Players {
+			// Копируем базовые данные игрока для карты
+			entry.MapStats[player.ID] = m.MapStats{
+				ID: player.ID,
+				// ... другие поля
+			}
+		}
+		st.Maps[mapID] = entry
+	}
+
 	for _, round := range st.Rounds {
 		entry := st.Maps[round.MapID]
 		processRoundKills(round.Kills, &entry, roundKAST)
