@@ -25,6 +25,7 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 	for rows.Next() {
 		var s m.MapStats
 		var ul *string
+		clutches := [5]int{}
 		if err := rows.Scan(
 			&s.ID,
 			&s.Nickname,
@@ -37,6 +38,13 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 			&s.Assists,
 			&s.Headshots,
 			&s.KASTScore,
+			&s.FirstKill,
+			&s.FirstDeath,
+			&clutches[0],
+			&clutches[1],
+			&clutches[2],
+			&clutches[3],
+			&clutches[4],
 			&s.Damage,
 			&s.Rating,
 			&s.Impact,
@@ -45,25 +53,32 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 			return nil, fmt.Errorf("data scanning error: %w", err)
 		}
 
+		clutchExp := 0
+		for num := range clutches {
+			clutchExp += clutches[num] * (num + 1)
+		}
 		if ul != nil {
 			s.UL_ID = *ul
 		}
 		stats = append(stats, gin.H{
-			"playerID":  s.ID,
-			"nickname":  s.Nickname,
-			"uLRating":  s.ULRating,
-			"img":       s.IMG,
-			"ul_id":     s.UL_ID,
-			"matches":   s.Matches,
-			"kills":     s.Kills,
-			"deaths":    s.Deaths,
-			"assists":   s.Assists,
-			"headshots": s.Headshots,
-			"kast":      s.KASTScore,
-			"damage":    s.Damage,
-			"rating":    s.Rating,
-			"impact":    s.Impact,
-			"rounds":    s.Rounds,
+			"playerID":    s.ID,
+			"nickname":    s.Nickname,
+			"uLRating":    s.ULRating,
+			"img":         s.IMG,
+			"ul_id":       s.UL_ID,
+			"matches":     s.Matches,
+			"kills":       s.Kills,
+			"deaths":      s.Deaths,
+			"assists":     s.Assists,
+			"headshots":   s.Headshots,
+			"kast":        s.KASTScore,
+			"firstKills":  s.FirstKill,
+			"firstDeaths": s.FirstDeath,
+			"clutchExp":   clutchExp,
+			"damage":      s.Damage,
+			"rating":      s.Rating,
+			"impact":      s.Impact,
+			"rounds":      s.Rounds,
 		})
 	}
 
