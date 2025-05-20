@@ -85,27 +85,17 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 	return stats, nil
 }
 
-func InitialMatchData(ctx context.Context, tx pgx.Tx, playerID int) ([]gin.H, error) {
-	query := `SELECT 
-		mp.match_id,
-		mp.kills,
-		mp.deaths,
-		mp.assists,
-		mp.finished_at,
-		mp.rating,
-		mp.is_winner,
-		m.map_name
-	FROM 
-		match_players mp
-	LEFT JOIN 
-		maps m ON m.map_id = mp.map_id
-	WHERE 
-		player_id = $1
-	ORDER BY
-		mp.finished_at DESC
-	LIMIT $2
-`
-	rows, err := tx.Query(ctx, query, playerID, 15)
+func InitialMatchData(ctx context.Context, pool *pgxpool.Pool, playerID int, ul_id string, page int) ([]gin.H, error) {
+	query := q.PlayerMatchesByUlIdQuery
+
+	var ulIDArg interface{}
+	if ul_id == "" {
+		ulIDArg = nil
+	} else {
+		ulIDArg = ul_id
+	}
+
+	rows, err := pool.Query(ctx, query, playerID, ulIDArg, page)
 
 	if err != nil {
 		return nil, err
@@ -260,6 +250,38 @@ func GetAverageMapsStats(ctx context.Context, tx pgx.Tx, playerID int) ([]interf
 			"wins":       result.Wins,
 			"avg_rating": result.AvgRating,
 			"winrate":    result.Winrate,
+		})
+	}
+
+	return stats, nil
+}
+
+func GetPlayerUlTournaments(ctx context.Context, tx pgx.Tx, playerID int) ([]interface{}, error) {
+	query := q.PlayerUlTournamentsQuery
+	rows, err := tx.Query(ctx, query, playerID)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []interface{}
+	for rows.Next() {
+		var id, name *string
+
+		err := rows.Scan(
+			&id,
+			&name,
+		)
+		if id == nil {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		stats = append(stats, gin.H{
+			"id":   id,
+			"name": name,
 		})
 	}
 

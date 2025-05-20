@@ -143,6 +143,51 @@ var GetPlayerStats = `SELECT
 	GROUP BY p.player_id, p.nickname, p.UL_rating, m.ul_tournament_id
 	ORDER BY p.nickname`
 
+var PlayerUlTournamentsQuery = `
+	SELECT 
+		m.ul_tournament_id, ul.name
+	FROM 
+		match_players mp
+	LEFT JOIN
+		matches m on mp.match_id = m.match_id
+	LEFT JOIN 
+		ul_tournaments ul on ul.id = m.ul_tournament_id
+	WHERE 
+		player_id = $1
+	GROUP BY 
+		m.ul_tournament_id, ul.name
+`
+
+var PlayerMatchesByUlIdQuery = `
+SELECT 
+	mp.match_id,
+	mp.kills,
+	mp.deaths,
+	mp.assists,
+	mp.finished_at,
+	mp.rating,
+	mp.is_winner,
+	maps.map_name
+FROM 
+	match_players mp
+LEFT JOIN
+	matches m on mp.match_id = m.match_id
+LEFT JOIN 
+	maps ON maps.map_id = mp.map_id
+WHERE 
+	player_id = $1    
+	AND (
+	-- Используем IS NOT DISTINCT FROM для корректного сравнения NULL
+		m.ul_tournament_id IS NOT DISTINCT FROM $2::uuid
+	)
+ORDER BY
+	mp.finished_at DESC
+LIMIT 
+	10
+OFFSET 
+	$3
+`
+
 var MatchDamageQuery = `
 	query GetMatchDamages($matchId: Int!) {
 		damages: match_damages(where: {match_id: {_eq: $matchId}}) {

@@ -50,9 +50,9 @@ func (st *MatchApi) AddMatchData(match Match) {
 			p.Nickname = user.NickName
 			p.TeamID = player.MatchTeamID
 			p.IMG = user.Avatar
-			players[user.ID] = p
 			p.MultiKills = [5]int{0, 0, 0, 0, 0}
 			p.Clutches = [5]int{0, 0, 0, 0, 0}
+			players[user.ID] = p
 		}
 	}
 
@@ -66,14 +66,14 @@ func (st *MatchApi) AddMatchData(match Match) {
 		if !match.Teams[0].MapStats[index].IsWinner {
 			winner = match.Teams[1].ID
 		}
-
+		mapStats := make(map[int]MapStats)
 		for id, player := range players {
 			if player.TeamID == winner {
 				player.IsWinner = true
 			}
 			player.StartedAt = *m.StartedAt
 			player.FinishedAt = *m.FinishedAt
-			players[id] = player
+			mapStats[id] = player
 		}
 
 		rounds := match.Teams[0].MapStats[index].Score + match.Teams[1].MapStats[index].Score
@@ -84,7 +84,7 @@ func (st *MatchApi) AddMatchData(match Match) {
 			winner,
 			*m.StartedAt,
 			*m.FinishedAt,
-			players,
+			mapStats,
 		}
 		st.Maps[m.ID] = newmap
 	}

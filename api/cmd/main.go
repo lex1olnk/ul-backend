@@ -21,6 +21,8 @@ func main() {
 
 		route.GET("/player/:id", handler.GetPlayer)
 
+		route.GET("/player/:id/matches", handler.GetPlayerMatchesByUlId)
+
 		route.GET("/players", handler.GetPlayers)
 
 		route.GET("/matches", handler.GetMatches)
