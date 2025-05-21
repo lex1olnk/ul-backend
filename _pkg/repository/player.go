@@ -4,7 +4,6 @@ import (
 	"context"
 	m "fastcup/_pkg/models"
 	q "fastcup/_pkg/queries"
-	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -17,7 +16,7 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 
 	rows, err := pool.Query(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("database query error: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -50,7 +49,7 @@ func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H,
 			&s.Impact,
 			&s.Rounds,
 		); err != nil {
-			return nil, fmt.Errorf("data scanning error: %w", err)
+			return nil, err
 		}
 
 		clutchExp := 0
