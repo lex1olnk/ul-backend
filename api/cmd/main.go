@@ -33,6 +33,8 @@ func main() {
 
 		route.POST("/ultournaments", handler.PostUlTournaments)
 
+		route.POST("/ulpicks", handler.PicksUlTournaments)
+
 		route.POST("/ulmatches", handler.PostUlMatches)
 
 		route.POST("/ulrating", handler.UpdateUlRating)

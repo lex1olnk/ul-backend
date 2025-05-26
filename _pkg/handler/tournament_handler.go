@@ -3,9 +3,12 @@ package handler
 import (
 	"context"
 	"fastcup/_pkg/db"
+	"fastcup/_pkg/googleDocs"
 	"fastcup/_pkg/repository"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -105,5 +108,107 @@ func PostUlTournaments(c *gin.Context) {
 		"data": gin.H{
 			"tournamentId": tournamentId,
 		},
+	})
+}
+
+func PicksUlTournaments(c *gin.Context) {
+	name := c.PostForm("name")
+	id := c.PostForm("id")
+	if name == "" || id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "failed to get name",
+		})
+		return
+	}
+	fmt.Println(name)
+
+	if err := db.Init(); err != nil {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
+		return
+	}
+	defer db.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	tx, err := db.Pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "failed to begin transaction",
+			"message": err.Error(), // Всегда используйте err.Error() для избежания сериализации
+		})
+		return
+	}
+
+	// Гарантируем откат/коммит транзакции
+	defer func() {
+		if err != nil {
+			tx.Rollback(ctx)
+		}
+	}()
+
+	// Извлекаем N из строки вида "UMC#N"
+	prefix := "UMC#"
+	if !strings.HasPrefix(name, prefix) {
+		// Обработка ошибки: неверный формат
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "postform have incorrect prefix",
+			"message": err.Error(), // Всегда используйте err.Error() для избежания сериализации
+		})
+		return
+	}
+
+	nStr := strings.TrimPrefix(name, prefix)
+	n, err := strconv.Atoi(nStr)
+	if err != nil {
+		// Обработка ошибки: N не является числом
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "failted to TrimPrefix",
+			"message": err.Error(), // Всегда используйте err.Error() для избежания сериализации
+		})
+		return
+	}
+
+	// Вычисляем границы диапазона
+	start := 2 + (n-1)*5
+	end := 2 + n*5
+
+	// Формируем строку диапазона
+	spreadRange := fmt.Sprintf("ОБЩАЯ ТАБЛИЦА!A%d:L%d", start, end)
+
+	resp, err := googleDocs.Init(c, ctx, spreadRange)
+	if err != nil {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed fetch data"})
+		return
+	}
+
+	// 7. Проверяем и выводим данные
+	if len(resp.Values) == 0 {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed fetch excel data"})
+	}
+
+	fmt.Println("Полученные данные:")
+	for i, row := range resp.Values {
+		for _, player := range row {
+			fmt.Println(i+1, player.(string))
+			repository.PostUlPlayerPick(ctx, tx, id, player.(string), i+1)
+		}
+	}
+
+	if err != nil {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
+		err = fmt.Errorf("post tournaments failed") // Помечаем для отката в defer
+		return
+	}
+
+	// Коммитим транзакцию перед отправкой ответа
+	if err = tx.Commit(ctx); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"Message": "failed to commit transaction"})
+		return
+	}
+
+	// Формируем ответ с данными
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
 	})
 }

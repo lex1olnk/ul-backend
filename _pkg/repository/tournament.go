@@ -59,3 +59,19 @@ func PostUlTournaments(ctx context.Context, tx pgx.Tx, name string) (string, err
 
 	return tournamentID, nil
 }
+
+func PostUlPlayerPick(ctx context.Context, tx pgx.Tx, id string, nickname string, pick int) error {
+	query := `
+        INSERT INTO player_tournament_picks (player_id, ul_tournament_id, pick_number)
+        VALUES ($1, $2, $3)
+        RETURNING id;
+    `
+
+	var tournamentID string
+	err := tx.QueryRow(ctx, query, id, nickname, pick).Scan(&tournamentID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
