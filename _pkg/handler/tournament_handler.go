@@ -171,15 +171,30 @@ func PicksUlTournaments(c *gin.Context) {
 
 	// Вычисляем границы диапазона
 	start := 2 + (n-1)*5
-	end := 2 + n*5
+	end := 2 + n*5 - 1
 
 	// Формируем строку диапазона
 	spreadRange := fmt.Sprintf("ОБЩАЯ ТАБЛИЦА!A%d:L%d", start, end)
-
 	resp, err := googleDocs.Init(c, ctx, spreadRange)
+
+	spreadRange2 := "ulplayers!A2:D145"
+	playersResp, err := googleDocs.Init(c, ctx, spreadRange2)
+
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed fetch data"})
 		return
+	}
+
+	players := make(map[string]int)
+
+	for _, row := range playersResp.Values {
+		if len(row) < 3 {
+			continue
+		}
+
+		nickname := strings.TrimSpace(row[0].(string))
+		id, _ := strconv.Atoi(strings.TrimSpace(row[3].(string)))
+		players[nickname] = id
 	}
 
 	// 7. Проверяем и выводим данные
@@ -190,20 +205,27 @@ func PicksUlTournaments(c *gin.Context) {
 	fmt.Println("Полученные данные:")
 	for i, row := range resp.Values {
 		for _, player := range row {
-			fmt.Println(i+1, player.(string))
-			repository.PostUlPlayerPick(ctx, tx, id, player.(string), i+1)
+			//fmt.Println(i+1, player.(string), players[player.(string)])
+			err = repository.PostUlPlayerPick(ctx, tx, players[player.(string)], id, i+1)
+			if err != nil {
+				c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
+				return
+			}
 		}
 	}
 
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
-		err = fmt.Errorf("post tournaments failed") // Помечаем для отката в defer
 		return
 	}
 
 	// Коммитим транзакцию перед отправкой ответа
 	if err = tx.Commit(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"Message": "failed to commit transaction"})
+		c.JSON(http.StatusInternalServerError,
+			gin.H{
+				"Message": "failed to commit transaction",
+				"error":   err.Error(),
+			})
 		return
 	}
 
