@@ -7,6 +7,7 @@ import (
 	"fastcup/_pkg/repository"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -169,19 +170,35 @@ func PicksUlTournaments(c *gin.Context) {
 		return
 	}
 
+	googleDocs.Init(c, ctx)
+	spreadsheetId := os.Getenv("GOOGLE_SHEET")
+
 	// Вычисляем границы диапазона
 	start := 2 + (n-1)*5
 	end := 2 + n*5 - 1
 
 	// Формируем строку диапазона
 	spreadRange := fmt.Sprintf("ОБЩАЯ ТАБЛИЦА!A%d:L%d", start, end)
-	resp, err := googleDocs.Init(c, ctx, spreadRange)
-
-	spreadRange2 := "ulplayers!A2:D145"
-	playersResp, err := googleDocs.Init(c, ctx, spreadRange2)
+	resp, err := googleDocs.Srv.Spreadsheets.Values.Get(spreadsheetId, spreadRange).Do()
 
 	if err != nil {
-		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed fetch data"})
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
+		return
+	}
+
+	spreadRange2 := "ulplayers!A2:D145"
+	playersResp, err := googleDocs.Srv.Spreadsheets.Values.Get(spreadsheetId, spreadRange2).Do()
+
+	if err != nil {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
+		return
+	}
+
+	spreadRange3 := fmt.Sprintf("ОБЩАЯ ТАБЛИЦА!N%d:N%d", start, end)
+	winnersResp, err := googleDocs.Srv.Spreadsheets.Values.Get(spreadsheetId, spreadRange3).Do()
+
+	if err != nil {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
 		return
 	}
 
@@ -211,6 +228,15 @@ func PicksUlTournaments(c *gin.Context) {
 				c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
 				return
 			}
+		}
+	}
+
+	for _, row := range winnersResp.Values {
+		nickname := strings.TrimSpace(row[0].(string))
+		err = repository.PostUlWinner(ctx, tx, players[nickname], id)
+		if err != nil {
+			c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
+			return
 		}
 	}
 

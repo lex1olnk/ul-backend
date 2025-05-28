@@ -11,7 +11,9 @@ import (
 	"google.golang.org/api/sheets/v4"
 )
 
-func Init(c *gin.Context, ctx context.Context, spreadRange string) (*sheets.ValueRange, error) {
+var Srv *sheets.Service
+
+func Init(c *gin.Context, ctx context.Context) error {
 	googleCreds := fmt.Sprintf(`{
 		"type": "service_account",
 		"project_id": "%s",
@@ -34,21 +36,18 @@ func Init(c *gin.Context, ctx context.Context, spreadRange string) (*sheets.Valu
 		os.Getenv("GOOGLE_PROJECT_ID"),
 		os.Getenv("GOOGLE_CLIENT_X509_CERT_URL"),
 	)
-
+	var err error
 	// 3. Создаем сервис Sheets с учетными данными из файла
-	srv, err := sheets.NewService(ctx, option.WithCredentialsJSON([]byte(googleCreds)))
+	Srv, err = sheets.NewService(ctx, option.WithCredentialsJSON([]byte(googleCreds)))
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to google sheet"})
-		return nil, err
+		return err
 	}
 
 	// 4. ID документа (из URL Google Sheets)
-	spreadsheetId := os.Getenv("GOOGLE_SHEET")
 
 	// 5. Диапазон для чтения, например, "Sheet1!A1:C10"
 
 	// 6. Получаем значения указываем диапазон
-	resp, err := srv.Spreadsheets.Values.Get(spreadsheetId, spreadRange).Do()
-
-	return resp, err
+	return nil
 }

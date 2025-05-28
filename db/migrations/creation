@@ -19,7 +19,7 @@ CREATE TABLE ul_tournaments (
 );
 
 CREATE TABLE ul_winners (
-    ul_tournaments UUID NOT NULL REFERENCES ul_tournaments(id),
+    ul_tournament_id UUID NOT NULL REFERENCES ul_tournaments(id),
     player_id INTEGER NOT NULL REFERENCES players(player_id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -82,6 +82,18 @@ CREATE TABLE tournament_matches (
     tournament_id UUID NOT NULL REFERENCES ul_tournaments(id) ON DELETE CASCADE,
     match_id INTEGER NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
     PRIMARY KEY (tournament_id, match_id)
+);
+
+CREATE TABLE player_tournament_picks (
+    player_id INT NOT NULL,
+    ul_tournament_id UUID NOT NULL,
+    pick_number INT NOT NULL CHECK (pick_number BETWEEN 1 AND 5),
+    pick_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (player_id) REFERENCES players(player_id),
+    FOREIGN KEY (ul_tournament_id) REFERENCES ul_tournaments(id),
+    
+    PRIMARY KEY (player_id, ul_tournament_id, pick_number)
 );
 
 -- Индексы

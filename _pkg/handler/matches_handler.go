@@ -7,6 +7,7 @@ import (
 	"fastcup/_pkg/repository"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -65,7 +66,11 @@ func PostMatches(c *gin.Context) {
 		}
 	}()
 
-	resp, err := googleDocs.Init(c, ctx, "src!A1:A100")
+	googleDocs.Init(c, ctx)
+	spreadsheetId := os.Getenv("GOOGLE_SHEET")
+
+	resp, err := googleDocs.Srv.Spreadsheets.Values.Get(spreadsheetId, "src!A1:A100").Do()
+
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed fetch data"})
 		return
@@ -146,7 +151,7 @@ func PostUlMatches(c *gin.Context) {
 	}
 	defer db.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	tx, err := db.Pool.BeginTx(ctx, pgx.TxOptions{})

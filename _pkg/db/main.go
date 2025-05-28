@@ -18,7 +18,7 @@ func Init() error {
 		if err := godotenv.Load(); err != nil {
 			log.Fatal("Error loading .env file: ", err)
 		}
-		connStr = os.Getenv("LOCAL_POSTGRES_URL")
+
 	}
 
 	config, err := pgxpool.ParseConfig(connStr)
