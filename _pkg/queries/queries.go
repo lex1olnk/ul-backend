@@ -114,13 +114,15 @@ FROM comparison c
 JOIN target_player tp ON c.player_id = tp.player_id;
 `
 
-var GetPlayerStats = `SELECT 
-	p.player_id,
-	p.nickname,
-	p.UL_rating,
-	p.img,
-	m.ul_tournament_id,
-	COUNT(mp.match_id) AS matches,
+var GetPlayerStats = `
+SELECT 
+    p.player_id,
+    p.nickname,
+    p.UL_rating,
+    p.img,
+    m.ul_tournament_id,
+    pt.pick_number,
+    COUNT(mp.match_id) AS matches,
 	COALESCE(SUM(mp.kills), 0) AS kills,
 	COALESCE(SUM(mp.deaths), 0) AS deaths, 
 	COALESCE(SUM(mp.assists), 0) AS assists,
@@ -137,11 +139,20 @@ var GetPlayerStats = `SELECT
 	COALESCE(SUM(mp.rating) / COUNT(mp.match_id), 0) AS rating,
 	CAST(COALESCE(SUM(mp.impact) / COUNT(mp.match_id), 0) as DECIMAL(10, 2)) AS impact,
 	COALESCE(SUM(mp.rounds), 0) AS total_rounds
-	FROM players p
-	LEFT JOIN match_players mp ON p.player_id = mp.player_id
-	LEFT JOIN matches m ON mp.match_id = m.match_id
-	GROUP BY p.player_id, p.nickname, p.UL_rating, m.ul_tournament_id
-	ORDER BY p.nickname`
+    -- ... остальные агрегации ...
+FROM players p
+LEFT JOIN match_players mp ON p.player_id = mp.player_id
+LEFT JOIN matches m ON mp.match_id = m.match_id
+LEFT JOIN player_tournament_picks pt 
+    ON pt.player_id = p.player_id 
+    AND pt.ul_tournament_id = m.ul_tournament_id  -- Ключевое исправление!
+GROUP BY 
+    p.player_id, 
+    p.nickname, 
+    p.UL_rating, 
+    p.img,
+    m.ul_tournament_id,
+    pt.pick_number`
 
 var PlayerUlTournamentsQuery = `
 	SELECT 
