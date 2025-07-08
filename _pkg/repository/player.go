@@ -11,13 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool) ([]gin.H, error) {
-	query := q.GetPlayerStats
+func GetAggregatedPlayerStats(ctx context.Context, pool *pgxpool.Pool, hasId bool, byId string) ([]gin.H, error) {
+	query := ``
+	var rows pgx.Rows
+	var err error
 
-	rows, err := pool.Query(ctx, query)
-	if err != nil {
-		return nil, err
+	if !hasId {
+		query = q.GetPlayerStats
+		rows, err = pool.Query(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		query = q.GetPlayerStatsByUlId
+		rows, err = pool.Query(ctx, query, byId)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	defer rows.Close()
 
 	var stats []gin.H

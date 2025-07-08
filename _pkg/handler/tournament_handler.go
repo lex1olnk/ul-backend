@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -186,7 +187,7 @@ func PicksUlTournaments(c *gin.Context) {
 		return
 	}
 
-	spreadRange2 := "ulplayers!A2:D145"
+	spreadRange2 := "ulplayers!A2:D200"
 	playersResp, err := googleDocs.Srv.Spreadsheets.Values.Get(spreadsheetId, spreadRange2).Do()
 
 	if err != nil {
@@ -203,6 +204,7 @@ func PicksUlTournaments(c *gin.Context) {
 	}
 
 	players := make(map[string]int)
+	winners := []string{}
 
 	for _, row := range playersResp.Values {
 		if len(row) < 3 {
@@ -214,29 +216,29 @@ func PicksUlTournaments(c *gin.Context) {
 		players[nickname] = id
 	}
 
+	for _, row := range winnersResp.Values {
+		nickname := strings.TrimSpace(row[0].(string))
+		winners = append(winners, nickname)
+	}
+
 	// 7. Проверяем и выводим данные
 	if len(resp.Values) == 0 {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed fetch excel data"})
 	}
 
-	fmt.Println("Полученные данные:")
 	for i, row := range resp.Values {
 		for _, player := range row {
 			//fmt.Println(i+1, player.(string), players[player.(string)])
-			err = repository.PostUlPlayerPick(ctx, tx, players[player.(string)], id, i+1)
+			winner := false
+			if slices.Contains(winners, player.(string)) {
+				winner = true
+			}
+			err = repository.PostUlPlayerPick(ctx, tx, players[player.(string)], id, i+1, winner)
 			if err != nil {
+				fmt.Println(player)
 				c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
 				return
 			}
-		}
-	}
-
-	for _, row := range winnersResp.Values {
-		nickname := strings.TrimSpace(row[0].(string))
-		err = repository.PostUlWinner(ctx, tx, players[nickname], id)
-		if err != nil {
-			c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
-			return
 		}
 	}
 
@@ -257,6 +259,8 @@ func PicksUlTournaments(c *gin.Context) {
 
 	// Формируем ответ с данными
 	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
+		"status":  "success",
+		"data":    resp.Values,
+		"winners": winners,
 	})
 }

@@ -154,6 +154,49 @@ GROUP BY
     m.ul_tournament_id,
     pt.pick_number`
 
+var GetPlayerStatsByUlId = `
+SELECT 
+    p.player_id,
+    p.nickname,
+    p.UL_rating,
+	p.img,
+    m.ul_tournament_id,
+    pt.pick_number,
+    COUNT(mp.match_id) AS matches,
+	COALESCE(SUM(mp.kills), 0) AS kills,
+	COALESCE(SUM(mp.deaths), 0) AS deaths, 
+	COALESCE(SUM(mp.assists), 0) AS assists,
+	COALESCE(SUM(mp.headshots), 0) AS headshots,
+	COALESCE(SUM(mp.kastscore), 0) AS kastscore,
+	COALESCE(SUM(mp.firstkills), 0) AS firstKills,
+	COALESCE(SUM(mp.firstDeaths), 0) AS firstDeaths,
+	COALESCE(SUM(clutches[1]), 0) AS clutches_1v1, -- Индекс 1 для 1v1
+	COALESCE(SUM(clutches[2]), 0) AS clutches_1v2,
+	COALESCE(SUM(clutches[3]), 0) AS clutches_1v3,
+	COALESCE(SUM(clutches[4]), 0) AS clutches_1v4,
+	COALESCE(SUM(clutches[5]), 0) AS clutches_1v5,
+	COALESCE(SUM(mp.damage), 0) AS damage,
+	COALESCE(SUM(mp.rating) / COUNT(mp.match_id), 0) AS rating,
+	CAST(COALESCE(SUM(mp.impact) / COUNT(mp.match_id), 0) as DECIMAL(10, 2)) AS impact,
+	COALESCE(SUM(mp.rounds), 0) AS total_rounds
+    -- ... остальные агрегации ...
+FROM players p
+LEFT JOIN match_players mp ON p.player_id = mp.player_id
+LEFT JOIN matches m ON mp.match_id = m.match_id
+LEFT JOIN player_tournament_picks pt 
+    ON pt.player_id = p.player_id 
+    AND pt.ul_tournament_id = m.ul_tournament_id  -- Ключевое исправление!
+WHERE
+	m.ul_tournament_id = $1
+GROUP BY 
+    p.player_id, 
+    p.nickname, 
+    p.UL_rating, 
+    p.img,
+    m.ul_tournament_id,
+    pt.pick_number
+`
+
 var PlayerUlTournamentsQuery = `
 	SELECT 
 		m.ul_tournament_id, ul.name

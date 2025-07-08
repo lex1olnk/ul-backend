@@ -60,26 +60,13 @@ func PostUlTournaments(ctx context.Context, tx pgx.Tx, name string) (string, err
 	return tournamentID, nil
 }
 
-func PostUlPlayerPick(ctx context.Context, tx pgx.Tx, player_id int, ul_id string, pick int) error {
+func PostUlPlayerPick(ctx context.Context, tx pgx.Tx, player_id int, ul_id string, pick int, is_winner bool) error {
 	query := `
-        INSERT INTO player_tournament_picks (player_id, ul_tournament_id, pick_number)
-        VALUES ($1, $2, $3)
-				ON CONFLICT (player_id, ul_tournament_id, pick_number) DO NOTHING
+        INSERT INTO player_tournament_picks (player_id, ul_tournament_id, pick_number, is_winner)
+        VALUES ($1, $2, $3, $4)
+				ON CONFLICT (player_id, ul_tournament_id) DO NOTHING
     `
-	_, err := tx.Exec(ctx, query, player_id, ul_id, pick)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func PostUlWinner(ctx context.Context, tx pgx.Tx, player_id int, ul_id string) error {
-	query := `
-        INSERT INTO ul_winners (player_id, ul_tournament_id)
-        VALUES ($1, $2)
-    `
-	_, err := tx.Exec(ctx, query, player_id, ul_id)
+	_, err := tx.Exec(ctx, query, player_id, ul_id, pick, is_winner)
 	if err != nil {
 		return err
 	}

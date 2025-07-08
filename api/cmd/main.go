@@ -29,6 +29,8 @@ func main() {
 
 		route.POST("/matches", handler.PostMatches)
 
+		route.GET("/matches/:id", handler.GetMatchesByUlId)
+
 		route.GET("/ultournaments", handler.GetUlTournaments)
 
 		route.POST("/ultournaments", handler.PostUlTournaments)

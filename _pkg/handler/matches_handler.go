@@ -24,7 +24,7 @@ func GetMatches(c *gin.Context) {
 	}
 	defer db.Close()
 	ctx := context.Background()
-	players, err := repository.GetAggregatedPlayerStats(ctx, db.Pool)
+	players, err := repository.GetAggregatedPlayerStats(ctx, db.Pool, false, "")
 
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err})
@@ -215,4 +215,29 @@ func PostUlMatches(c *gin.Context) {
 		"status":        "success",
 		"added_matches": len(matchIDs),
 	})
+}
+
+func GetMatchesByUlId(c *gin.Context) {
+	if err := db.Init(); err != nil {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
+		return
+	}
+	ul_id := c.Param("id")
+	fmt.Println(ul_id)
+	defer db.Close()
+	ctx := context.Background()
+	players, err := repository.GetAggregatedPlayerStats(ctx, db.Pool, true, ul_id)
+
+	if err != nil {
+		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err})
+		return
+	}
+
+	data := struct {
+		Players []gin.H
+	}{
+		Players: players,
+	}
+
+	c.JSON(http.StatusOK, data)
 }
