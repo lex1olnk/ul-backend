@@ -16,7 +16,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"google.golang.org/api/sheets/v4"
 )
 
 func GetMatches(c *gin.Context) {
@@ -238,7 +237,7 @@ func ExportMatchesByUlId(c *gin.Context) {
 
 	googleDocs.Init(c, ctx)
 	srv := googleDocs.Srv
-	spreadsheetId := os.Getenv("GOOGLE_SHEET")
+	spreadSheetId := os.Getenv("GOOGLE_SHEET")
 
 	players, err := repository.GetAggregatedPlayerStats(ctx, db.Pool, true, ul_id)
 
@@ -249,11 +248,10 @@ func ExportMatchesByUlId(c *gin.Context) {
 	/* 	c.JSON(http.StatusOK, gin.H{
 		"players": players,
 	}) */
-	go func(ul_id string, ul_name string, players []gin.H, srv *sheets.Service, spreedSheetId string) {
-		if err := repository.WriteToGoogleSheets(ul_id, ul_name, players, srv, spreedSheetId); err != nil {
-			log.Printf("Google Sheets error: %v", err)
-		}
-	}(ul_id, ul_name, players, srv, spreadsheetId)
+
+	if err := repository.WriteToGoogleSheets(ul_id, ul_name, players, srv, spreadSheetId); err != nil {
+		log.Printf("Google Sheets error: %v", err)
+	}
 
 	c.JSON(http.StatusOK, gin.H{})
 }
