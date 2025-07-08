@@ -6,10 +6,13 @@ import (
 	m "fastcup/_pkg/models"
 	s "fastcup/_pkg/service"
 	"fmt"
+	"log"
 
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/api/sheets/v4"
 )
 
 func CreateMatch(ctx context.Context, tx pgx.Tx, matchID int, tournamentId *string) error {
@@ -263,4 +266,131 @@ func GetPlayerMatches(ctx context.Context, pool *pgxpool.Pool, playerID int, lim
 	}
 
 	return matches, nil
+}
+
+// Функция записи в Google Sheets
+func WriteToGoogleSheets(ul_id string, sheetName string, players []gin.H, srv *sheets.Service, spreadsheetID string) error {
+	// 1. Проверка существования листа и создание при необходимости
+	spreadsheet, err := srv.Spreadsheets.Get(spreadsheetID).Do()
+	if err != nil {
+		return fmt.Errorf("failed to get spreadsheet: %w", err)
+	}
+
+	sheetExists := false
+	for _, sheet := range spreadsheet.Sheets {
+		if sheet.Properties.Title == sheetName {
+			sheetExists = true
+			break
+		}
+	}
+
+	if !sheetExists {
+		// Создаем новый лист
+		addSheetReq := &sheets.Request{
+			AddSheet: &sheets.AddSheetRequest{
+				Properties: &sheets.SheetProperties{
+					Title: sheetName,
+				},
+			},
+		}
+
+		batchUpdateReq := &sheets.BatchUpdateSpreadsheetRequest{
+			Requests: []*sheets.Request{addSheetReq},
+		}
+
+		_, err := srv.Spreadsheets.BatchUpdate(spreadsheetID, batchUpdateReq).Do()
+		if err != nil {
+			return fmt.Errorf("failed to create sheet: %w", err)
+		}
+		log.Printf("Created new sheet: %s", sheetName)
+	}
+	// Подготовка заголовков столбцов
+	headers := []string{
+		"Nickname", "Pick Number", "Matches Played", "Kills", "Deaths", "Assists", "Headshots",
+		"KAST Score", "First Kills", "First Deaths", "ClutchExp", "Total Damage",
+		"Impact", "Total Rounds", "Rating",
+	}
+
+	values := [][]interface{}{}
+	values = append(values, convertToInterfaceSlice(headers))
+
+	// Подготовка данных игроков
+	for _, p := range players {
+		row := []interface{}{
+			getString(p, "nickname"),
+			getInt(p, "pick_number"),
+			getInt(p, "matches"),
+			getInt(p, "kills"),
+			getInt(p, "deaths"),
+			getInt(p, "assists"),
+			getInt(p, "headshots"),
+			getFloat(p, "kast"),
+			getInt(p, "firstKills"),
+			getInt(p, "firstDeaths"),
+			getInt(p, "clutchExp"),
+			getFloat(p, "damage"),
+			getFloat(p, "impact"),
+			getInt(p, "rounds"),
+			getFloat(p, "rating"),
+		}
+		values = append(values, row)
+	}
+
+	// Определение диапазона записи
+	rangeData := fmt.Sprintf("%s!A:X", sheetName)
+	valueRange := &sheets.ValueRange{
+		Values: values,
+	}
+
+	// Очистка листа перед записью новых данных
+	clearRange := fmt.Sprintf("%s!A:Z", sheetName)
+	if _, err := srv.Spreadsheets.Values.Clear(spreadsheetID, clearRange, &sheets.ClearValuesRequest{}).Do(); err != nil {
+		return fmt.Errorf("failed to clear sheet: %w", err)
+	}
+
+	// Записываем новые данные
+	_, err = srv.Spreadsheets.Values.Update(
+		spreadsheetID,
+		rangeData,
+		valueRange,
+	).ValueInputOption("USER_ENTERED").Do()
+
+	return err
+}
+
+// Вспомогательные функции для безопасного извлечения данных
+func getInt(data gin.H, key string) int {
+	if val, ok := data[key]; ok {
+
+		if num, ok := val.(int); ok {
+			return num
+		}
+	}
+	return 0
+}
+
+func getFloat(data gin.H, key string) float64 {
+	if val, ok := data[key]; ok {
+		if num, ok := val.(float64); ok {
+			return num
+		}
+	}
+	return 0.0
+}
+
+func getString(data gin.H, key string) string {
+	if val, ok := data[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+func convertToInterfaceSlice(strSlice []string) []interface{} {
+	interfaceSlice := make([]interface{}, len(strSlice))
+	for i, v := range strSlice {
+		interfaceSlice[i] = v
+	}
+	return interfaceSlice
 }

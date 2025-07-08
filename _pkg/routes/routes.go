@@ -25,6 +25,8 @@ func Register(app *gin.Engine) {
 
 		route.POST("/matches", handler.PostMatches)
 
+		route.POST("/matches/export", handler.ExportMatchesByUlId)
+
 		route.GET("/ultournaments", handler.GetUlTournaments)
 
 		route.POST("/ultournaments", handler.PostUlTournaments)

@@ -16,7 +16,7 @@ type MapStats struct {
 	ULRating    float64
 	IMG         string
 	UL_ID       string
-	PickNumber  *int
+	PickNumber  int
 	Matches     int
 	Kills       int
 	Deaths      int

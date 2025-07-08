@@ -6,6 +6,7 @@ import (
 	"fastcup/_pkg/googleDocs"
 	"fastcup/_pkg/repository"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"google.golang.org/api/sheets/v4"
 )
 
 func GetMatches(c *gin.Context) {
@@ -217,27 +219,41 @@ func PostUlMatches(c *gin.Context) {
 	})
 }
 
-func GetMatchesByUlId(c *gin.Context) {
+func ExportMatchesByUlId(c *gin.Context) {
+	ul_id := c.PostForm("id")
+	ul_name := c.PostForm("name")
+	if ul_name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "failed to get name",
+		})
+		return
+	}
+
 	if err := db.Init(); err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	ul_id := c.Param("id")
-	fmt.Println(ul_id)
 	defer db.Close()
 	ctx := context.Background()
+
+	googleDocs.Init(c, ctx)
+	srv := googleDocs.Srv
+	spreadsheetId := os.Getenv("GOOGLE_SHEET")
+
 	players, err := repository.GetAggregatedPlayerStats(ctx, db.Pool, true, ul_id)
 
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err})
 		return
 	}
+	/* 	c.JSON(http.StatusOK, gin.H{
+		"players": players,
+	}) */
+	go func(ul_id string, ul_name string, players []gin.H, srv *sheets.Service, spreedSheetId string) {
+		if err := repository.WriteToGoogleSheets(ul_id, ul_name, players, srv, spreedSheetId); err != nil {
+			log.Printf("Google Sheets error: %v", err)
+		}
+	}(ul_id, ul_name, players, srv, spreadsheetId)
 
-	data := struct {
-		Players []gin.H
-	}{
-		Players: players,
-	}
-
-	c.JSON(http.StatusOK, data)
+	c.JSON(http.StatusOK, gin.H{})
 }

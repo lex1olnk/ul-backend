@@ -29,7 +29,7 @@ func main() {
 
 		route.POST("/matches", handler.PostMatches)
 
-		route.GET("/matches/:id", handler.GetMatchesByUlId)
+		route.POST("/matches/export", handler.ExportMatchesByUlId)
 
 		route.GET("/ultournaments", handler.GetUlTournaments)
 
