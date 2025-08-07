@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"fastcup/_pkg/db"
 	"fastcup/_pkg/repository"
 	"log"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
 )
 
 func GetPlayerMatchesByUlId(c *gin.Context) {
@@ -99,45 +97,24 @@ func GetPlayer(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	// Начало транзакции
-	tx, err := db.Pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		log.Printf("Transaction error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-
-	defer func() {
-		if err := tx.Rollback(ctx); err != nil && !errors.Is(err, pgx.ErrTxClosed) {
-			log.Printf("Rollback error: %v", err)
-		}
-	}()
-
-	avgStats, err := repository.GetAverageStats(ctx, tx, playerID)
+	avgStats, err := repository.GetAverageStats(ctx, db.Pool, playerID)
 	if err != nil {
 		log.Printf("Avg stats error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch stats"})
 		return
 	}
 
-	avgMapsStats, err := repository.GetAverageMapsStats(ctx, tx, playerID)
+	avgMapsStats, err := repository.GetAverageMapsStats(ctx, db.Pool, playerID)
 	if err != nil {
 		log.Printf("Maps stats error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch map stats"})
 		return
 	}
 
-	playerTournaments, err := repository.GetPlayerUlTournaments(ctx, tx, playerID)
+	playerTournaments, err := repository.GetPlayerUlTournaments(ctx, db.Pool, playerID)
 	if err != nil {
 		log.Printf("Tournaments error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to ul tournaments stats"})
-		return
-	}
-
-	// Коммит транзакции
-	if err := tx.Commit(ctx); err != nil {
-		log.Printf("Commit error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -165,26 +142,10 @@ func GetPlayers(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	tx, err := db.Pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "failed to begin transaction",
-			"message": err.Error(), // Всегда используйте err.Error() для избежания сериализации
-		})
-		return
-	}
-
-	// Гарантируем откат/коммит транзакции
-	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
-	}()
-
 	query := `SELECT player_id, nickname FROM players
 ORDER BY nickname`
 
-	rows, err := tx.Query(ctx, query)
+	rows, err := db.Pool.Query(ctx, query)
 	if err != nil {
 		log.Printf("Query error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
@@ -206,11 +167,6 @@ ORDER BY nickname`
 	if err = rows.Err(); err != nil {
 		log.Printf("Rows error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		return
-	}
-
-	if err = tx.Commit(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "transaction commit failed"})
 		return
 	}
 

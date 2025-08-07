@@ -5,9 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func GetUlTournaments(ctx context.Context, tx pgx.Tx) ([]gin.H, error) {
+func GetUlTournaments(ctx context.Context, pool *pgxpool.Pool) ([]gin.H, error) {
 	query := `SELECT 
 			id, name
 		FROM 
@@ -16,7 +17,7 @@ func GetUlTournaments(ctx context.Context, tx pgx.Tx) ([]gin.H, error) {
 			name
 	`
 
-	rows, err := tx.Query(ctx, query)
+	rows, err := pool.Query(ctx, query)
 	if err != nil {
 		return nil, err
 	}

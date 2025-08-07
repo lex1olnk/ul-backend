@@ -148,12 +148,12 @@ func InitialMatchData(ctx context.Context, pool *pgxpool.Pool, playerID int, ul_
 	return stats, nil
 }
 
-func GetAverageStats(ctx context.Context, tx pgx.Tx, playerID int) (gin.H, error) {
+func GetAverageStats(ctx context.Context, pool *pgxpool.Pool, playerID int) (gin.H, error) {
 	query := q.GetAverageStatsQuery
 
 	var result m.PlayerComparison
 	var faceitlink *string
-	err := tx.QueryRow(ctx, query, playerID).Scan(
+	err := pool.QueryRow(ctx, query, playerID).Scan(
 		&result.PlayerID,
 		&result.Nickname,
 		&faceitlink,
@@ -233,9 +233,9 @@ func GetAverageStats(ctx context.Context, tx pgx.Tx, playerID int) (gin.H, error
 	}, nil
 }
 
-func GetAverageMapsStats(ctx context.Context, tx pgx.Tx, playerID int) ([]interface{}, error) {
+func GetAverageMapsStats(ctx context.Context, pool *pgxpool.Pool, playerID int) ([]interface{}, error) {
 	query := q.GetAverageMapStatsQuery
-	rows, err := tx.Query(ctx, query, playerID)
+	rows, err := pool.Query(ctx, query, playerID)
 
 	if err != nil {
 		return nil, err
@@ -269,9 +269,9 @@ func GetAverageMapsStats(ctx context.Context, tx pgx.Tx, playerID int) ([]interf
 	return stats, nil
 }
 
-func GetPlayerUlTournaments(ctx context.Context, tx pgx.Tx, playerID int) ([]interface{}, error) {
+func GetPlayerUlTournaments(ctx context.Context, pool *pgxpool.Pool, playerID int) ([]interface{}, error) {
 	query := q.PlayerUlTournamentsQuery
-	rows, err := tx.Query(ctx, query, playerID)
+	rows, err := pool.Query(ctx, query, playerID)
 
 	if err != nil {
 		return nil, err

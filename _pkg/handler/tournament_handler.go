@@ -27,32 +27,9 @@ func GetUlTournaments(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	tx, err := db.Pool.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "failed to begin transaction",
-			"message": err.Error(), // Всегда используйте err.Error() для избежания сериализации
-		})
-		return
-	}
-
-	// Гарантируем откат/коммит транзакции
-	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
-	}()
-
-	tournaments, err := repository.GetUlTournaments(ctx, tx)
+	tournaments, err := repository.GetUlTournaments(ctx, db.Pool)
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
-		err = fmt.Errorf("get tournaments failed") // Помечаем для отката в defer
-		return
-	}
-
-	// Коммитим транзакцию перед отправкой ответа
-	if err = tx.Commit(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"Message": "failed to commit transaction"})
 		return
 	}
 

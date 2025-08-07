@@ -41,7 +41,7 @@ func main() {
 
 		route.POST("/ulrating", handler.UpdateUlRating)
 	}
-	router.Run(":80")
+	router.Run(":5000")
 }
 
 func ErrRouter(c *gin.Context) {

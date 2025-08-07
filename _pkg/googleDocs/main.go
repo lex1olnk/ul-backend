@@ -28,7 +28,6 @@ func Init(c *gin.Context, ctx context.Context) error {
 		"client_x509_cert_url": "%s",
 		"universe_domain": "googleapis.com"
 	}`,
-		os.Getenv("GOOGLE_PROJECT_ID"),
 		os.Getenv("GOOGLE_PRIVATE_KEY_ID"),
 		os.Getenv("GOOGLE_PRIVATE_KEY"),
 		os.Getenv("GOOGLE_CLIENT_EMAIL"),
