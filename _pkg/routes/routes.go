@@ -2,7 +2,6 @@ package routes
 
 import (
 	"fastcup/_pkg/handler"
-	"fastcup/_pkg/middleware"
 
 	"net/http"
 
@@ -17,7 +16,6 @@ func Register(app *gin.Engine) {
 
 	route := app.Group("/api")
 	{
-		// Публичные (чтение)
 		route.GET("/ping", handler.Ping)
 
 		route.GET("/player/:id", handler.GetPlayer)
@@ -28,23 +26,19 @@ func Register(app *gin.Engine) {
 
 		route.GET("/matches", handler.GetMatches)
 
+		route.POST("/matches", handler.PostMatches)
+
+		route.POST("/matches/export", handler.ExportMatchesByUlId)
+
 		route.GET("/ultournaments", handler.GetUlTournaments)
-	}
 
-	// Мутирующие эндпоинты — только с валидным API_TOKEN
-	write := app.Group("/api", middleware.RequireAPIToken())
-	{
-		write.POST("/matches", handler.PostMatches)
+		route.POST("/ultournaments", handler.PostUlTournaments)
 
-		write.POST("/matches/export", handler.ExportMatchesByUlId)
+		route.POST("/ulpicks", handler.PicksUlTournaments)
 
-		write.POST("/ultournaments", handler.PostUlTournaments)
+		route.POST("/ulmatches", handler.PostUlMatches)
 
-		write.POST("/ulpicks", handler.PicksUlTournaments)
-
-		write.POST("/ulmatches", handler.PostUlMatches)
-
-		write.POST("/ulrating", handler.UpdateUlRating)
+		route.POST("/ulrating", handler.UpdateUlRating)
 	}
 }
 
