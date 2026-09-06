@@ -12,7 +12,7 @@ type Match struct {
 	StartedAt            time.Time   `json:"startedAt"`
 	FinishedAt           *time.Time  `json:"finishedAt"`
 	MaxRoundsCount       int         `json:"maxRoundsCount"`
-	ServerInstanceID     *int        `json:"serverInstanceDd"`
+	ServerInstanceID     *int        `json:"serverInstanceId"`
 	CancellationReason   *string     `json:"cancellation_reason"`
 	ReplayExpirationDate *string     `json:"replayExpirationDate"`
 	Rounds               []Round     `json:"rounds"`
@@ -64,8 +64,8 @@ type MatchMapReplay struct {
 type Map struct {
 	ID       int      `json:"id"`
 	Name     string   `json:"name"`
-	Offset   *float64 `json:"offset"` // Исправлено на указатель
-	Scale    *float64 `json:"scale"`  // Исправлено на указатель
+	Offset   *string  `json:"offset"` // Строка вида "(-2000,3250)", а не число
+	Scale    *float64 `json:"scale"`
 	Preview  string   `json:"preview"`
 	Topview  string   `json:"topview"`
 	Overview string   `json:"overview"`
@@ -102,7 +102,7 @@ type Member struct {
 
 type MatchMemberPrivate struct {
 	Rating   int    `json:"rating"`
-	PartyID  int    `json:"partyId"`
+	PartyID  *int   `json:"partyId"` // может быть null
 	User     User   `json:"user"`
 	TypeName string `json:"__typename"`
 }
