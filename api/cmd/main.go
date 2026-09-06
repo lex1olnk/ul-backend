@@ -1,51 +1,16 @@
 package main
 
 import (
-	"fastcup/_pkg/handler"
-
-	"net/http"
+	"fastcup/_pkg/routes"
 
 	"github.com/gin-gonic/gin"
 )
 
-func HomepageHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "Welcome to the Tech Company listing API with Golang"})
-}
-
 func main() {
 	router := gin.Default()
 
-	route := router.Group("/api")
-	{
-		route.GET("/ping", handler.Ping)
+	// Тот же набор маршрутов, что и в serverless-точке входа
+	routes.Register(router)
 
-		route.GET("/player/:id", handler.GetPlayer)
-
-		route.GET("/player/:id/matches", handler.GetPlayerMatchesByUlId)
-
-		route.GET("/players", handler.GetPlayers)
-
-		route.GET("/matches", handler.GetMatches)
-
-		route.POST("/matches", handler.PostMatches)
-
-		route.POST("/matches/export", handler.ExportMatchesByUlId)
-
-		route.GET("/ultournaments", handler.GetUlTournaments)
-
-		route.POST("/ultournaments", handler.PostUlTournaments)
-
-		route.POST("/ulpicks", handler.PicksUlTournaments)
-
-		route.POST("/ulmatches", handler.PostUlMatches)
-
-		route.POST("/ulrating", handler.UpdateUlRating)
-	}
 	router.Run(":5000")
-}
-
-func ErrRouter(c *gin.Context) {
-	c.JSON(http.StatusBadRequest, gin.H{
-		"errors": "this page could not be found",
-	})
 }

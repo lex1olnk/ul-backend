@@ -26,9 +26,9 @@ type PlayerComparison struct {
 	Assists          int     `json:"assists"`
 	FirstKills       int     `json:"fk"`
 	FirstDeaths      int     `json:"fd"`
-	Flashes          int     `json:"flashes`
-	Nades            int     `json:"nades`
-	Impact           float64 `json:"impact`
+	Flashes          int     `json:"flashes"`
+	Nades            int     `json:"nades"`
+	Impact           float64 `json:"impact"`
 	KAST             float64 `json:"kast"`
 	Maps             int     `json:"maps"`
 	Exchanged        int     `json:"exchanged"`

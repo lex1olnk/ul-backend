@@ -18,7 +18,7 @@ type Clutch struct {
 	RoundId   int       `json:"roundId"`
 	UserId    int       `json:"userId"`
 	CreatedAt time.Time `json:"createdAt"`
-	Success   bool      `json:"success`
+	Success   bool      `json:"success"`
 	Amount    int       `json:"amount"`
 	Typename  string    `json:"__typename"`
 }

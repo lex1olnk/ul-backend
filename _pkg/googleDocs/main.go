@@ -28,6 +28,7 @@ func Init(c *gin.Context, ctx context.Context) error {
 		"client_x509_cert_url": "%s",
 		"universe_domain": "googleapis.com"
 	}`,
+		os.Getenv("GOOGLE_PROJECT_ID"),
 		os.Getenv("GOOGLE_PRIVATE_KEY_ID"),
 		os.Getenv("GOOGLE_PRIVATE_KEY"),
 		os.Getenv("GOOGLE_CLIENT_EMAIL"),
@@ -35,13 +36,13 @@ func Init(c *gin.Context, ctx context.Context) error {
 		os.Getenv("GOOGLE_PROJECT_ID"),
 		os.Getenv("GOOGLE_CLIENT_X509_CERT_URL"),
 	)
-	var err error
 	// 3. Создаем сервис Sheets с учетными данными из файла
-	Srv, err = sheets.NewService(ctx, option.WithCredentialsJSON([]byte(googleCreds)))
+	srv, err := sheets.NewService(ctx, option.WithCredentialsJSON([]byte(googleCreds)))
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to google sheet"})
 		return err
 	}
+	Srv = srv
 
 	// 4. ID документа (из URL Google Sheets)
 

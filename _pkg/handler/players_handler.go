@@ -42,7 +42,6 @@ func GetPlayerMatchesByUlId(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "service unavailable"})
 		return
 	}
-	defer db.Close()
 
 	// Контекст с таймаутом
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -92,7 +91,6 @@ func GetPlayer(c *gin.Context) {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 	// Инициализация контекста с таймаутом
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -137,7 +135,6 @@ func GetPlayers(c *gin.Context) {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()

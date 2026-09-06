@@ -58,25 +58,40 @@ func (st *MatchApi) AddMatchData(match Match) {
 
 	st.Maps = map[int]Stats{}
 
-	for index, m := range match.Maps {
-		if m.StartedAt == nil {
-			break
+	// Нужны обе команды, иначе сопоставить победителя не с чем
+	if len(match.Teams) < 2 {
+		return
+	}
+
+	for _, m := range match.Maps {
+		// Несыгранную карту пропускаем, но продолжаем обход:
+		// break обрывал бы обработку всех последующих карт
+		if m.StartedAt == nil || m.FinishedAt == nil {
+			continue
 		}
+
+		// mapStats команд — независимые срезы, сопоставляем по MatchMapID,
+		// а не по позиции карты в match.Maps
+		firstStat := findTeamMapStat(match.Teams[0], m.ID)
+		secondStat := findTeamMapStat(match.Teams[1], m.ID)
+		if firstStat == nil || secondStat == nil {
+			continue
+		}
+
 		winner := match.Teams[0].ID
-		if !match.Teams[0].MapStats[index].IsWinner {
+		if !firstStat.IsWinner {
 			winner = match.Teams[1].ID
 		}
+
 		mapStats := make(map[int]MapStats)
 		for id, player := range players {
-			if player.TeamID == winner {
-				player.IsWinner = true
-			}
+			player.IsWinner = player.TeamID == winner
 			player.StartedAt = *m.StartedAt
 			player.FinishedAt = *m.FinishedAt
 			mapStats[id] = player
 		}
 
-		rounds := match.Teams[0].MapStats[index].Score + match.Teams[1].MapStats[index].Score
+		rounds := firstStat.Score + secondStat.Score
 		newmap := Stats{
 			m.ID,
 			m.Map.Name,
@@ -100,6 +115,16 @@ func (st *MatchApi) AddMatchData(match Match) {
 			}
 		}
 	}
+}
+
+// findTeamMapStat находит статистику команды для конкретной карты матча.
+func findTeamMapStat(team MatchTeam, matchMapID int) *MatchTeamMapStat {
+	for i := range team.MapStats {
+		if team.MapStats[i].MatchMapID == matchMapID {
+			return &team.MapStats[i]
+		}
+	}
+	return nil
 }
 
 func (st *MatchApi) InitPlayers(members []Member) {

@@ -5,7 +5,6 @@ import (
 	"fastcup/_pkg/db"
 	"fastcup/_pkg/googleDocs"
 	"fastcup/_pkg/repository"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -23,7 +22,6 @@ func GetMatches(c *gin.Context) {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 	ctx := context.Background()
 	players, err := repository.GetAggregatedPlayerStats(ctx, db.Pool, false, "")
 
@@ -46,7 +44,6 @@ func PostMatches(c *gin.Context) {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -60,14 +57,15 @@ func PostMatches(c *gin.Context) {
 		return
 	}
 
-	// Гарантируем откат/коммит транзакции
+	// Гарантируем откат: после успешного Commit Rollback безвреден (ErrTxClosed)
 	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
+		_ = tx.Rollback(ctx)
 	}()
 
-	googleDocs.Init(c, ctx)
+	if err := googleDocs.Init(c, ctx); err != nil {
+		// Init уже записал ответ об ошибке
+		return
+	}
 	spreadsheetId := os.Getenv("GOOGLE_SHEET")
 
 	resp, err := googleDocs.Srv.Spreadsheets.Values.Get(spreadsheetId, "src!A1:A100").Do()
@@ -81,25 +79,31 @@ func PostMatches(c *gin.Context) {
 	// 7. Проверяем и выводим данные
 	if len(resp.Values) == 0 {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed fetch excel data"})
+		return
 	}
 
-	fmt.Println("Полученные данные:")
 	for _, row := range resp.Values {
-		url := re.FindStringSubmatch(row[0].(string))
-		matchID, err := strconv.Atoi(url[1])
-		fmt.Println(matchID)
-		if err != nil {
-			// ... handle error
-			c.JSON(http.StatusExpectationFailed, gin.H{"Message": "matchIdincorrect"})
-			panic(err)
+		if len(row) == 0 {
+			continue
 		}
 
-		err = repository.CreateMatch(ctx, tx, matchID, nil)
-		if err != nil {
-			c.JSON(http.StatusExpectationFailed, gin.H{"Message": err})
-			panic(err)
+		match := re.FindStringSubmatch(cellString(row[0]))
+		if match == nil {
+			// Строка без ссылки вида matches/<id> — пропускаем
+			continue
 		}
 
+		matchID, convErr := strconv.Atoi(match[1])
+		if convErr != nil {
+			err = convErr
+			c.JSON(http.StatusExpectationFailed, gin.H{"Message": "match id is incorrect", "value": match[1]})
+			return
+		}
+
+		if err = repository.CreateMatch(ctx, tx, matchID, nil); err != nil {
+			c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error(), "match_id": matchID})
+			return
+		}
 	}
 	// Фиксация транзакции
 	if err := tx.Commit(ctx); err != nil {
@@ -150,7 +154,6 @@ func PostUlMatches(c *gin.Context) {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -164,11 +167,9 @@ func PostUlMatches(c *gin.Context) {
 		return
 	}
 
-	// Гарантируем откат/коммит транзакции
+	// Гарантируем откат: после успешного Commit Rollback безвреден (ErrTxClosed)
 	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
+		_ = tx.Rollback(ctx)
 	}()
 
 	// Проверка существования турнира
@@ -232,10 +233,12 @@ func ExportMatchesByUlId(c *gin.Context) {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 	ctx := context.Background()
 
-	googleDocs.Init(c, ctx)
+	if err := googleDocs.Init(c, ctx); err != nil {
+		// Init уже записал ответ об ошибке
+		return
+	}
 	srv := googleDocs.Srv
 	spreadSheetId := os.Getenv("GOOGLE_SHEET")
 

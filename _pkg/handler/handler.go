@@ -41,12 +41,23 @@ type Player struct {
 	Nickname string `json:"nickname"`
 }
 
+// cellString безопасно приводит ячейку Google Sheets к строке:
+// API возвращает []interface{}, где значение может быть не строкой.
+func cellString(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprint(v)
+}
+
 func UpdateUlRating(c *gin.Context) {
 	if err := db.Init(); err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 
 	googleCreds := fmt.Sprintf(`{
 		"type": "service_account",
@@ -99,13 +110,16 @@ func UpdateUlRating(c *gin.Context) {
 	}
 	players := make(map[string]PlayerData)
 	for _, row := range playersResp.Values {
-		if len(row) < 3 {
+		if len(row) < 4 {
 			continue
 		}
 
-		nickname := strings.TrimSpace(row[0].(string))
-		faceit := strings.TrimSpace(row[1].(string))
-		id, _ := strconv.Atoi(strings.TrimSpace(row[3].(string)))
+		nickname := strings.TrimSpace(cellString(row[0]))
+		faceit := strings.TrimSpace(cellString(row[1]))
+		id, err := strconv.Atoi(strings.TrimSpace(cellString(row[3])))
+		if nickname == "" || err != nil {
+			continue
+		}
 
 		players[nickname] = PlayerData{
 			ID:       id,
@@ -122,9 +136,17 @@ func UpdateUlRating(c *gin.Context) {
 		return
 	}
 
+	if len(ratingsResp.Values) < 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ratings sheet must have at least two rows"})
+		return
+	}
+
 	for i := range ratingsResp.Values[0] {
-		nickname := strings.TrimSpace(ratingsResp.Values[0][i].(string))
-		ulratingstr := strings.Replace(strings.TrimSpace(ratingsResp.Values[1][i].(string)), ",", ".", 1)
+		if i >= len(ratingsResp.Values[1]) {
+			break
+		}
+		nickname := strings.TrimSpace(cellString(ratingsResp.Values[0][i]))
+		ulratingstr := strings.Replace(strings.TrimSpace(cellString(ratingsResp.Values[1][i])), ",", ".", 1)
 		ulrating, _ := strconv.ParseFloat(ulratingstr, 64)
 
 		// If the key exists

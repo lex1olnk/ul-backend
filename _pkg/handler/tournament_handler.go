@@ -22,7 +22,6 @@ func GetUlTournaments(c *gin.Context) {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -45,7 +44,6 @@ func PostUlTournaments(c *gin.Context) {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -59,11 +57,9 @@ func PostUlTournaments(c *gin.Context) {
 		return
 	}
 
-	// Гарантируем откат/коммит транзакции
+	// Гарантируем откат: после успешного Commit Rollback безвреден (ErrTxClosed)
 	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
+		_ = tx.Rollback(ctx)
 	}()
 
 	name := c.PostForm("name")
@@ -71,7 +67,6 @@ func PostUlTournaments(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
-		err = fmt.Errorf("post tournaments failed") // Помечаем для отката в defer
 		return
 	}
 
@@ -99,13 +94,10 @@ func PicksUlTournaments(c *gin.Context) {
 		})
 		return
 	}
-	fmt.Println(name)
-
 	if err := db.Init(); err != nil {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed connect to db"})
 		return
 	}
-	defer db.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -119,11 +111,9 @@ func PicksUlTournaments(c *gin.Context) {
 		return
 	}
 
-	// Гарантируем откат/коммит транзакции
+	// Гарантируем откат: после успешного Commit Rollback безвреден (ErrTxClosed)
 	defer func() {
-		if err != nil {
-			tx.Rollback(ctx)
-		}
+		_ = tx.Rollback(ctx)
 	}()
 
 	// Извлекаем N из строки вида "UMC#N"
@@ -132,7 +122,7 @@ func PicksUlTournaments(c *gin.Context) {
 		// Обработка ошибки: неверный формат
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "postform have incorrect prefix",
-			"message": err.Error(), // Всегда используйте err.Error() для избежания сериализации
+			"message": fmt.Sprintf("name must start with %q, got %q", prefix, name),
 		})
 		return
 	}
@@ -148,7 +138,10 @@ func PicksUlTournaments(c *gin.Context) {
 		return
 	}
 
-	googleDocs.Init(c, ctx)
+	if err := googleDocs.Init(c, ctx); err != nil {
+		// Init уже записал ответ об ошибке
+		return
+	}
 	spreadsheetId := os.Getenv("GOOGLE_SHEET")
 
 	// Вычисляем границы диапазона
@@ -184,44 +177,53 @@ func PicksUlTournaments(c *gin.Context) {
 	winners := []string{}
 
 	for _, row := range playersResp.Values {
-		if len(row) < 3 {
+		if len(row) < 4 {
 			continue
 		}
 
-		nickname := strings.TrimSpace(row[0].(string))
-		id, _ := strconv.Atoi(strings.TrimSpace(row[3].(string)))
-		players[nickname] = id
+		nickname := strings.TrimSpace(cellString(row[0]))
+		playerID, convErr := strconv.Atoi(strings.TrimSpace(cellString(row[3])))
+		if nickname == "" || convErr != nil {
+			continue
+		}
+		players[nickname] = playerID
 	}
 
 	for _, row := range winnersResp.Values {
-		nickname := strings.TrimSpace(row[0].(string))
+		if len(row) == 0 {
+			continue
+		}
+		nickname := strings.TrimSpace(cellString(row[0]))
 		winners = append(winners, nickname)
 	}
 
 	// 7. Проверяем и выводим данные
 	if len(resp.Values) == 0 {
 		c.JSON(http.StatusExpectationFailed, gin.H{"Message": "failed fetch excel data"})
+		return
 	}
 
+	var unknown []string
 	for i, row := range resp.Values {
-		for _, player := range row {
-			//fmt.Println(i+1, player.(string), players[player.(string)])
-			winner := false
-			if slices.Contains(winners, player.(string)) {
-				winner = true
+		for _, cell := range row {
+			nickname := strings.TrimSpace(cellString(cell))
+			if nickname == "" {
+				continue
 			}
-			err = repository.PostUlPlayerPick(ctx, tx, players[player.(string)], id, i+1, winner)
-			if err != nil {
-				fmt.Println(player)
+
+			playerID, ok := players[nickname]
+			if !ok {
+				// Не пишем пик на player_id = 0 для неизвестного ника
+				unknown = append(unknown, nickname)
+				continue
+			}
+
+			winner := slices.Contains(winners, nickname)
+			if err = repository.PostUlPlayerPick(ctx, tx, playerID, id, i+1, winner); err != nil {
 				c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
 				return
 			}
 		}
-	}
-
-	if err != nil {
-		c.JSON(http.StatusExpectationFailed, gin.H{"Message": err.Error()})
-		return
 	}
 
 	// Коммитим транзакцию перед отправкой ответа
@@ -236,8 +238,9 @@ func PicksUlTournaments(c *gin.Context) {
 
 	// Формируем ответ с данными
 	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"data":    resp.Values,
-		"winners": winners,
+		"status":           "success",
+		"data":             resp.Values,
+		"winners":          winners,
+		"unknown_players":  unknown,
 	})
 }

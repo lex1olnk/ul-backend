@@ -30,7 +30,13 @@ func ProcessStatistic(st *m.MatchApi) {
 	}
 
 	for _, round := range st.Rounds {
-		entry := st.Maps[round.MapID]
+		// Раунд может ссылаться на карту, которой нет в st.Maps
+		// (несыгранная/отменённая): у неё MapStats == nil, и запись в неё
+		// уронила бы обработку целиком
+		entry, ok := st.Maps[round.MapID]
+		if !ok || entry.MapStats == nil {
+			continue
+		}
 		processRoundKills(round.Kills, &entry, roundKAST)
 		processRoundDamages(round.Damages, &entry)
 		processRoundClutches(round.Clutches, &entry)
@@ -39,6 +45,11 @@ func ProcessStatistic(st *m.MatchApi) {
 }
 
 func processRoundKills(kills []m.Kill, mapStat *m.Stats, roundKAST map[int]*roundType) {
+	// Раунд без убийств: считать первый килл/смерть не от чего
+	if len(kills) == 0 {
+		return
+	}
+
 	fk, fd := firstInteract(kills[0])
 	for id := range roundKAST {
 		roundKAST[id] = &roundType{
@@ -56,6 +67,7 @@ func processRoundKills(kills []m.Kill, mapStat *m.Stats, roundKAST map[int]*roun
 		// Обрабатываем KAST и мультикиллы
 		victim := calculateTrade(index, kill, kills, mapStat)
 		if victim != 0 {
+			initPlayerKAST(roundKAST, victim)
 			roundKAST[victim].wasTrade = true
 		}
 		processKAST(roundKAST, kill)
@@ -97,12 +109,18 @@ func updatePlayerMapStats(mapStat *m.Stats, kill m.Kill) {
 }
 
 func processKAST(roundKAST map[int]*roundType, kill m.Kill) {
+	// В киллах может встретиться id, которого нет среди участников матча,
+	// поэтому запись создаём при первом обращении
+	initPlayerKAST(roundKAST, kill.VictimId)
+	initPlayerKAST(roundKAST, kill.KillerId)
+
 	// Обновление состояния
 	roundKAST[kill.VictimId].isDead = true
 	roundKAST[kill.KillerId].kills++
 	roundKAST[kill.KillerId].hasKill = true
 
 	if kill.AssistantId != nil {
+		initPlayerKAST(roundKAST, *kill.AssistantId)
 		roundKAST[*kill.AssistantId].hasAssist = true
 	}
 }
@@ -178,11 +196,16 @@ func processRoundDamages(damages []m.Damage, mapStat *m.Stats) {
 
 func processRoundClutches(clutches []m.Clutch, mapStat *m.Stats) {
 	for _, clutch := range clutches {
-		if clutch.Success {
-			player := mapStat.MapStats[clutch.UserId]
-			player.Clutches[clutch.Amount-1]++
-			player.ClutchScore += clutch.Amount
-			mapStat.MapStats[clutch.UserId] = player
+		if !clutch.Success {
+			continue
 		}
+		// Clutches — массив [5]int, индекс за его пределами уронил бы обработку
+		if clutch.Amount < 1 || clutch.Amount > 5 {
+			continue
+		}
+		player := mapStat.MapStats[clutch.UserId]
+		player.Clutches[clutch.Amount-1]++
+		player.ClutchScore += clutch.Amount
+		mapStat.MapStats[clutch.UserId] = player
 	}
 }

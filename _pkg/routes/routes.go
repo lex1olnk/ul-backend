@@ -2,6 +2,7 @@ package routes
 
 import (
 	"fastcup/_pkg/handler"
+	"fastcup/_pkg/middleware"
 
 	"net/http"
 
@@ -9,10 +10,14 @@ import (
 )
 
 func Register(app *gin.Engine) {
+	// gin.New() идёт без middleware, поэтому Recovery добавляем явно:
+	// паника в хендлере иначе убивает весь инстанс
+	app.Use(gin.Recovery())
 	app.NoRoute(ErrRouter)
 
 	route := app.Group("/api")
 	{
+		// Публичные (чтение)
 		route.GET("/ping", handler.Ping)
 
 		route.GET("/player/:id", handler.GetPlayer)
@@ -23,24 +28,28 @@ func Register(app *gin.Engine) {
 
 		route.GET("/matches", handler.GetMatches)
 
-		route.POST("/matches", handler.PostMatches)
-
-		route.POST("/matches/export", handler.ExportMatchesByUlId)
-
 		route.GET("/ultournaments", handler.GetUlTournaments)
+	}
 
-		route.POST("/ultournaments", handler.PostUlTournaments)
+	// Мутирующие эндпоинты — только с валидным API_TOKEN
+	write := app.Group("/api", middleware.RequireAPIToken())
+	{
+		write.POST("/matches", handler.PostMatches)
 
-		route.POST("/ulpicks", handler.PicksUlTournaments)
+		write.POST("/matches/export", handler.ExportMatchesByUlId)
 
-		route.POST("/ulmatches", handler.PostUlMatches)
+		write.POST("/ultournaments", handler.PostUlTournaments)
 
-		route.POST("/ulrating", handler.UpdateUlRating)
+		write.POST("/ulpicks", handler.PicksUlTournaments)
+
+		write.POST("/ulmatches", handler.PostUlMatches)
+
+		write.POST("/ulrating", handler.UpdateUlRating)
 	}
 }
 
 func ErrRouter(c *gin.Context) {
-	c.JSON(http.StatusBadRequest, gin.H{
+	c.JSON(http.StatusNotFound, gin.H{
 		"errors": "this page could not be found",
 	})
 }

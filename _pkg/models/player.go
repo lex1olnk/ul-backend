@@ -47,6 +47,17 @@ type MapStats struct {
 }
 
 func (p *MapStats) CalculateDerivedStats() {
+	// При Rounds == 0 деление дало бы NaN/Inf, которые нельзя записать
+	// в numeric-колонки: вставка статистики упала бы целиком
+	if p.Rounds <= 0 {
+		p.KPR = 0
+		p.DPR = 0
+		p.Impact = 0
+		p.ClutchScore = p.CalculateClutchScore()
+		p.Rating = 0
+		return
+	}
+
 	p.KPR = float64(p.Kills) / float64(p.Rounds)
 	p.DPR = float64(p.Deaths) / float64(p.Rounds)
 	p.Impact = p.CalculateImpact()
