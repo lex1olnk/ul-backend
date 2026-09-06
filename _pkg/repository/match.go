@@ -28,7 +28,7 @@ func CreateMatch(ctx context.Context, tx pgx.Tx, matchID int, tournamentId *stri
 
 	//fmt.Println("2. Получение данных матча")
 	// 2. Получение данных матча
-	match, err := getMatchData(matchID)
+	match, err := getMatchData(ctx, matchID)
 
 	if err != nil {
 		return fmt.Errorf("failed to get match data: %w", err)
@@ -66,7 +66,7 @@ func CreateMatch(ctx context.Context, tx pgx.Tx, matchID int, tournamentId *stri
 
 	// 6. Получение дополнительной статистики
 	//fmt.Println("6. Получение дополнительной статистики")
-	if err := getMatchStatistics(matchID, &stats); err != nil {
+	if err := getMatchStatistics(ctx, matchID, &stats); err != nil {
 		return err
 	}
 	//fmt.Println("7. Обработка дополнительной статистики")
@@ -93,10 +93,8 @@ func checkMatchExists(ctx context.Context, tx pgx.Tx, matchID int) (bool, error)
 	return exists, err
 }
 
-func getMatchData(matchID int) (m.Match, error) {
-	match, err := graphql.InitialMatchData(matchID)
-
-	return match, err
+func getMatchData(ctx context.Context, matchID int) (m.Match, error) {
+	return graphql.InitialMatchData(ctx, matchID)
 }
 
 /*
@@ -161,14 +159,14 @@ func saveMatchMapsInfo(ctx context.Context, tx pgx.Tx, st m.MatchApi) error {
 	return err
 }
 
-func getMatchStatistics(matchID int, stats *m.MatchApi) error {
-	if err := graphql.GetMatchKills(matchID, stats); err != nil {
+func getMatchStatistics(ctx context.Context, matchID int, stats *m.MatchApi) error {
+	if err := graphql.GetMatchKills(ctx, matchID, stats); err != nil {
 		return err
 	}
-	if err := graphql.GetMatchDamages(matchID, stats); err != nil {
+	if err := graphql.GetMatchDamages(ctx, matchID, stats); err != nil {
 		return err
 	}
-	if err := graphql.GetMatchClutches(matchID, stats); err != nil {
+	if err := graphql.GetMatchClutches(ctx, matchID, stats); err != nil {
 		return err
 	}
 	return nil
